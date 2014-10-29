@@ -6,6 +6,8 @@
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="webgl-utils.js"></script>
+
 
 <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float;
@@ -39,7 +41,8 @@
     var pMatrix = mat4.create();
 	//Stores the vertex and fragment shader code to run on the graphics card
 	var shaderProgram;
-	
+	//Stores all the matrices currently in the matrix stack
+	var mvMatrixStack = [];
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
@@ -124,6 +127,11 @@
 	function initBuffers() {
 		
 	}
+	
+	//Cuz degrees are cool
+	function degToRad(degrees) {
+        return degrees * Math.PI / 180;
+    }
 
 	//Moves the model-view and projection matrices from javaScript into webGL
 	//puts them into the uniform variables extracted in initShaders
@@ -132,6 +140,21 @@
 		gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
 	}
 
+	//Adds the current mvMatrix to the matrix stack
+    function mvPushMatrix() {
+        var copy = mat4.create();
+        mat4.set(mvMatrix, copy);
+        mvMatrixStack.push(copy);
+    }
+
+	//Restores the last matrix on the stack to the current mvMatrix
+    function mvPopMatrix() {
+        if (mvMatrixStack.length == 0) {
+            throw "Error: No more Matracies on the stack!";
+        }
+        mvMatrix = mvMatrixStack.pop();
+    }
+	
 	//Initialises everything for webGL and components, then runs the scene
 	function webGLSetup() {
         var canvas = document.getElementById("buggyMap");
@@ -139,10 +162,19 @@
         initShaders();
         initBuffers();
 
+		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
         gl.enable(gl.DEPTH_TEST);
 
+		//main loop
+		tick();
+    }
+
+	//Runs every time the browser wants to update the windows graphics (main loop)
+    function tick() {
+        requestAnimFrame(tick);
         drawScene();
+        updateScene();
     }
 	
 	function drawScene() {
@@ -158,6 +190,11 @@
 		
 		//Activate (use the changed) the mvMatrix
 		setMatrixUniforms();
+	}
+	
+	//Update the position of objects the the program / runs game logic
+	function updateScene(){
+	
 	}
 	
 </script>
