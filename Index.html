@@ -51,6 +51,17 @@
 	//Stores all the matrices currently in the matrix stack
 	var mvMatrixStack = [];
 	
+	//Stores details of the board shape and color
+	var boardVertexPositionBuffer;
+	var boardVertexColorBuffer;
+	var boardVertexIndexBuffer;
+	
+	//Stores the current rotation of the world
+	var rWorld = 45;
+	//Stores the last time the update function was called
+	var lastTime = 0;
+	
+	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
         try {
@@ -136,7 +147,76 @@
 
 	//Sets up the buffers (item vertices, color, texture) for each object that is to be drawn in the webGL window.
 	function initBuffers() {
+		boardVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
+		        vertices = [
+            // Front face
+            -8.0, -1.0,  6.0,
+             8.0, -1.0,  6.0,
+             8.0,  1.0,  6.0,
+            -8.0,  1.0,  6.0,
+
+            // Back face
+            -8.0, -1.0, -6.0,
+            -8.0,  1.0, -6.0,
+             8.0,  1.0, -6.0,
+             8.0, -1.0, -6.0,
+
+            // Top face
+            -8.0,  1.0, -6.0,
+            -8.0,  1.0,  6.0,
+             8.0,  1.0,  6.0,
+             8.0,  1.0, -6.0,
+
+            // Bottom face
+            -8.0, -1.0, -6.0,
+             8.0, -1.0, -6.0,
+             8.0, -1.0,  6.0,
+            -8.0, -1.0,  6.0,
+
+            // Right face
+             8.0, -1.0, -6.0,
+             8.0,  1.0, -6.0,
+             8.0,  1.0,  6.0,
+             8.0, -1.0,  6.0,
+
+            // Left face
+            -8.0, -1.0, -6.0,
+            -8.0, -1.0,  6.0,
+            -8.0,  1.0,  6.0,
+            -8.0,  1.0, -6.0
+        ];
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        boardVertexPositionBuffer.itemSize = 3;
+        boardVertexPositionBuffer.numItems = 24;
 		
+		boardVertexColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexColorBuffer);
+        colors = [
+            1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // Front face
+            1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, // Back face
+            0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, // Top face
+            1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, // Bottom face
+            1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, // Right face
+            0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0  // Left face
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+        boardVertexColorBuffer.itemSize = 4;
+        boardVertexColorBuffer.numItems = 24;
+
+        boardVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boardVertexIndexBuffer);
+        var boardVertexIndices = [
+            0, 1, 2,      0, 2, 3,    // Front face
+            4, 5, 6,      4, 6, 7,    // Back face
+            8, 9, 10,     8, 10, 11,  // Top face
+            12, 13, 14,   12, 14, 15, // Bottom face
+            16, 17, 18,   16, 18, 19, // Right face
+            20, 21, 22,   20, 22, 23  // Left face
+        ];
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(boardVertexIndices), gl.STATIC_DRAW);
+        boardVertexIndexBuffer.itemSize = 1;
+        boardVertexIndexBuffer.numItems = 36;
 	}
 	
 	//Cuz degrees are cool
@@ -199,13 +279,33 @@
 		//Reset the mvMatrix to a blank transformation (identity)
         mat4.identity(mvMatrix);
 		
+		//Move the object back in the world
+		mat4.translate(mvMatrix, [0.0, 0.0, -28.0]);
+		
+		//Store the current translation matrix
+		mvPushMatrix();
+		
+		mat4.rotate(mvMatrix, degToRad(rWorld), [1, 1, 1]);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boardVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, boardVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boardVertexIndexBuffer);
+        setMatrixUniforms();
+        gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+
+        mvPopMatrix();
+		
 		//Activate (use the changed) the mvMatrix
 		setMatrixUniforms();
 	}
 	
 	//Update the position of objects the the program / runs game logic
 	function updateScene(){
-	
+
 	}
 	
 </script>
