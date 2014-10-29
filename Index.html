@@ -1,0 +1,173 @@
+<html>
+
+<head>
+
+<title>Buggy Command</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float;
+
+    void main(void) {
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+
+
+
+<script type="text/javascript">
+
+	// Creates a variable to hold the webGL object
+    var gl;
+	
+	//Model-view matrix, stores the current translation and rotation in a 3D space
+	var mvMatrix = mat4.create();
+	//Stores the current scene perspective
+    var pMatrix = mat4.create();
+	//Stores the vertex and fragment shader code to run on the graphics card
+	var shaderProgram;
+	
+	
+	//Creates the webGL object, uses the size of the canvas on the html page.
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Error: Could not initialise WebGL!");
+        }
+    }
+	
+	//Finds elements in the HTML page that have a matching ID, the element is then passed to webGL
+	//to be compiled into a format that can be run on the graphics card. This find process makes the
+	// HTML source look neater 
+	function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var str = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                str += k.textContent;
+            }
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (shaderScript.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+	
+	//Sets up code that runs on the graphics card to process pixel data as its rendered.
+	function initShaders() {
+	
+		//Gets the fragment and vertex shader
+		var fragmentShader = getShader(gl, "shader-fs");
+        var vertexShader = getShader(gl, "shader-vs");
+
+		//Creates a program (Something that runs on the graphics card) and attaches the shaders
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+		//Checks the shaders were created properly
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders!");
+        }
+		//Runs the shaders
+        gl.useProgram(shaderProgram);
+		
+		shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+		//Gets the location of two uniform variables 
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+	}
+
+	//Sets up the buffers (item vertices, color, texture) for each object that is to be drawn in the webGL window.
+	function initBuffers() {
+		
+	}
+
+	//Moves the model-view and projection matrices from javaScript into webGL
+	//puts them into the uniform variables extracted in initShaders
+	function setMatrixUniforms() {
+		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+		gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+	}
+
+	//Initialises everything for webGL and components, then runs the scene
+	function webGLSetup() {
+        var canvas = document.getElementById("buggyMap");
+        initGL(canvas);
+        initShaders();
+        initBuffers();
+
+        gl.clearColor(0.6, 0.6, 0.6, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
+        drawScene();
+    }
+	
+	function drawScene() {
+	    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		//Clear the screen
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		
+		//Setup drawing modes (min rendering distance, max distance, view angle)
+		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+
+		//Reset the mvMatrix to a blank transformation (identity)
+        mat4.identity(mvMatrix);
+		
+		//Activate (use the changed) the mvMatrix
+		setMatrixUniforms();
+	}
+	
+</script>
+
+</head>
+
+
+<body onload="webGLSetup();">
+    <canvas id="buggyMap" style="border: none;" width="500" height="500"></canvas>
+
+</body>
+
+</html>
