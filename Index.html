@@ -2,6 +2,20 @@
 
 <head>
 
+<style>
+      body, html { 
+        width: 100%;
+        height: 100%;
+        border: 0px;
+        padding: 0px;
+        margin: 0px;
+      }
+      #c {
+        width: 100%;
+        height: 100%;
+      }
+</style>
+
 <title>Buggy Command</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
@@ -43,6 +57,8 @@
 
 	// Creates a variable to hold the webGL object
     var gl;
+	//Stores the HTML canvas element
+	var canvas;
 	
 	//Model-view matrix, stores the current translation and rotation in a 3D space
 	var mvMatrix = mat4.create();
@@ -65,9 +81,27 @@
 	var tileTexture;
 	
 	//Stores the current X Y and Z rotation of the world
-	var xRot = 0;
-    var yRot = 0;
-    var zRot = 0;
+	var xRot = 0.0;
+    var yRot = 0.0;
+    var zRot = 0.0;
+	
+	//Stores the current zoom level and X Y pos
+	var zPos = -28;
+	var xPos = 0;
+	var yPos = 0;
+	
+	//Stores the location of the mouse down event
+	var mouseDownX = 0;
+	var mouseDownY = 0;
+	
+	//Indicates if the view is being zoomed
+	var zooming = false;
+	//indicates the last zoom amount
+	var lastZoomPos = 0;
+	
+	//Stores the current mouse state
+	var mouseDown = false;
+	var leftMouse = true;
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -76,12 +110,38 @@
             gl = canvas.getContext("experimental-webgl");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
+			resizeCanvas();
+			//Stop the context menu
+			canvas.oncontextmenu = onContextMenu;
+			//Keep the canvas the same size as the window
+			window.addEventListener('resize', resizeCanvas);
+			//Add event listeners for the mouse
+			canvas.onmousewheel = onMouseScroll;
+			canvas.onmousedown = onMouseDown;
+			document.onmouseup = onMouseUp;
+			document.onmousemove = onMouseMove;
+			//Add event listeners for touch
+			canvas.ontouchstart = onTouchStart;
+			document.ontouchmove = onTouchMove;
+			document.ontouchend = onTouchEnd;
         } catch (e) {
         }
         if (!gl) {
             alert("Error: Could not initialise WebGL!");
         }
     }
+	
+	//Resizes the webGL canvas based on the windows size
+	function resizeCanvas() {
+		var width = canvas.clientWidth;
+		var height = canvas.clientHeight;
+		if (canvas.width != width || canvas.height != height) {
+			canvas.width = width;
+			canvas.height = height;
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+		}
+	}
 	
 	//Starts loading the textures, and sets the callback when the textures are loaded
     function initTexture() {
@@ -248,9 +308,9 @@
 
           // Bottom face
           0.0, 0.0,
-          7.5, 0.0,
-          7.5, 5.5,
-          0.0, 5.5,
+          0.5, 0.0,
+          0.5, 0.5,
+          0.0, 0.5,
 
           // Right face
           0.0, 0.0,
@@ -313,7 +373,7 @@
 	
 	//Initialises everything for webGL and components, then runs the scene
 	function webGLSetup() {
-        var canvas = document.getElementById("buggyMap");
+        canvas = document.getElementById("buggyMap");
         initGL(canvas);
         initShaders();
         initBuffers();
@@ -322,7 +382,7 @@
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
         gl.enable(gl.DEPTH_TEST);
-
+		
 		//main loop
 		tick();
     }
@@ -340,13 +400,13 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		
 		//Setup drawing modes (min rendering distance, max distance, view angle)
-		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 500.0, pMatrix);
 
 		//Reset the mvMatrix to a blank transformation (identity)
         mat4.identity(mvMatrix);
 		
 		//Move the object back in the world
-		mat4.translate(mvMatrix, [0.0, 0.0, -28.0]);
+		mat4.translate(mvMatrix, [xPos, yPos, zPos]);
 		
 		//Store the current translation matrix
 		mvPushMatrix();
@@ -380,16 +440,101 @@
 	
 	//Update the position of objects the the program / runs game logic
 	function updateScene(){
-        var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
 
-            xRot += (90 * elapsed) / 1000.0;
-            yRot += (90 * elapsed) / 1000.0;
-            zRot += (90 * elapsed) / 1000.0;
-        }
-        lastTime = timeNow;
 	}
+	
+	//Mouse down event for when the user clicks
+	function onMouseDown( event ) {
+		event.preventDefault();
+		mouseDown = true;
+		if (event.button == 0){
+			leftMouse = true;
+		}else{
+			leftMouse = false;
+		}
+		mouseDownX = event.clientX;
+		mouseDownY = event.clientY;
+		return false;
+	}
+	
+	//Event for when the user moves the mouse
+	function onMouseMove( event ) {
+		if (mouseDown == true){
+			var dX = mouseDownX - event.clientX;
+			var dY = mouseDownY - event.clientY;
+			
+			if (leftMouse == true){
+				yRot -= (dX / 10);
+				xRot -= (dY / 10);
+			}else{
+				xPos -= dX / 10;
+				yPos += dY / 10;
+			}
+			
+			mouseDownX = event.clientX;
+			mouseDownY = event.clientY;
+		}
+	}
+	
+	//Mouse up event, end of click or drag
+	function onMouseUp( event ) {
+		mouseDown = false;
+	}
+	
+	//Touch "down" event
+	function onTouchStart( event ) {
+		if ( event.touches.length === 1 ) {	
+			event.preventDefault();
+			mouseDown = true;
+			mouseDownX = event.touches[ 0 ].pageX;
+			mouseDownY = event.touches[ 0 ].pageY;
+		}
+	}
+
+	//touch "drag" event
+	function onTouchMove( event ) {
+		if (mouseDown == true && event.touches.length === 1 ) {
+			event.preventDefault();
+			var dX = mouseDownX - event.touches[ 0 ].pageX;
+			var dY = mouseDownY - event.touches[ 0 ].pageY;
+			
+			yRot -= (dX / 10);
+			xRot -= (dY / 10);
+			
+			mouseDownX = event.touches[ 0 ].pageX;
+			mouseDownY = event.touches[ 0 ].pageY;
+		}else if (event.touches.length == 2){
+			var p1 = event.targetTouches[0];
+            var p2 = event.targetTouches[1];
+			var dist = Math.sqrt(Math.pow(p2.pageX - p1.pageX, 2) + Math.pow(p2.pageY - p1.pageY, 2)); 
+			
+			if(zooming == true){
+				zPos += (dist - lastZoomPos) / 10;
+			}else{
+				zooming = true;
+			}
+			
+			lastZoomPos = dist;
+
+		}
+	}
+	
+	//End of touch event
+	function onTouchEnd( event){
+		mouseDown = false;
+		zooming = false;
+	}
+	
+	//Mouse scroll wheel event
+	function onMouseScroll( event ) {
+		zPos += event.wheelDelta / 20;
+	}
+	
+	//Stops the context menu showing
+	function onContextMenu( event ) {
+		return false;
+	}
+	
 	
 </script>
 
@@ -397,7 +542,7 @@
 
 
 <body onload="webGLSetup();">
-    <canvas id="buggyMap" style="border: none;" width="500" height="500"></canvas>
+    <canvas id="buggyMap" style="border: none; width: 100%; height: 100%"></canvas>
 
 </body>
 
