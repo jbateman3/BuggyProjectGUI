@@ -10,26 +10,28 @@
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
-    attribute vec4 aVertexColor;
+    attribute vec4 aTextureCoord;
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
 
-    varying vec4 vColor;
+    varying vec4 vTextureCoord;
 
     void main(void) {
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-        vColor = aVertexColor;
+        vTextureCoord = aTextureCoord;
 	}
 </script>
 
 <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float;
 
-    varying vec4 vColor;
+    varying vec4 vTextureCoord;
+	
+	uniform sampler2D uSampler;
 
     void main(void) {
-        gl_FragColor = vColor;
+        gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
     }
 </script>
 
@@ -53,14 +55,20 @@
 	
 	//Stores details of the board shape and color
 	var boardVertexPositionBuffer;
-	var boardVertexColorBuffer;
+	var boardTextureCoordBuffer;
 	var boardVertexIndexBuffer;
 	
-	//Stores the current rotation of the world
-	var rWorld = 45;
 	//Stores the last time the update function was called
 	var lastTime = 0;
 	
+	//Stores the texture for the board tiles
+	var tileTexture;
+	
+	//Stores the current X Y and Z rotation of the world
+	var xRot = 0;
+    var yRot = 0;
+    var zRot = 0;
+
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
@@ -73,6 +81,29 @@
         if (!gl) {
             alert("Error: Could not initialise WebGL!");
         }
+    }
+	
+	//Starts loading the textures, and sets the callback when the textures are loaded
+    function initTexture() {
+        tileTexture = gl.createTexture();
+        tileTexture.image = new Image();
+        tileTexture.image.onload = function () {
+            handleLoadedTexture(tileTexture)
+        }
+
+        tileTexture.image.src = "tile.png";
+    }
+	
+	//Callback for when the textures are loaded, sends the textures over the the graphics card
+	function handleLoadedTexture(texture) {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+		gl.generateMipmap(gl.TEXTURE_2D);
+		
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 	
 	//Finds elements in the HTML page that have a matching ID, the element is then passed to webGL
@@ -137,16 +168,19 @@
 		shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 		
-		shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
-        gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+        shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
 		//Gets the location of two uniform variables 
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+		shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
 	}
 
 	//Sets up the buffers (item vertices, color, texture) for each object that is to be drawn in the webGL window.
 	function initBuffers() {
+	
+		//create the buffer the holds the vertices for the board and populate it
 		boardVertexPositionBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
 		        vertices = [
@@ -189,21 +223,52 @@
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         boardVertexPositionBuffer.itemSize = 3;
         boardVertexPositionBuffer.numItems = 24;
-		
-		boardVertexColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexColorBuffer);
-        colors = [
-            1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, // Front face
-            1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, // Back face
-            0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, // Top face
-            1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, // Bottom face
-            1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, // Right face
-            0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0  // Left face
-        ];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-        boardVertexColorBuffer.itemSize = 4;
-        boardVertexColorBuffer.numItems = 24;
 
+		//Set-up the texture coordinates for the board
+		boardTextureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, boardTextureCoordBuffer);
+        var textureCoords = [
+          // Front face
+          0.0, 0.5,
+          7.5, 0.5,
+          7.5, 0.0,
+          0.0, 0.0,
+
+          // Back face
+          0.0, 0.0,
+          0.0, 0.5,
+          7.5, 0.5,
+          7.5, 0.0,
+
+          // Top face
+          0.0, 0.0,
+          0.0, 5.5,
+          7.5, 5.5,
+          7.5, 0.0,
+
+          // Bottom face
+          0.0, 0.0,
+          7.5, 0.0,
+          7.5, 5.5,
+          0.0, 5.5,
+
+          // Right face
+          0.0, 0.0,
+          0.0, 0.0,
+          5.5, 0.5,
+          5.5, 0.5,
+
+          // Left face
+          0.0, 0.0,
+          5.5, 0.0,
+          5.5, 0.5,
+          0.0, 0.5,
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+        boardTextureCoordBuffer.itemSize = 2;
+        boardTextureCoordBuffer.numItems = 24;
+		
+		//Define the triangles that make up the board out of the vertices
         boardVertexIndexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boardVertexIndexBuffer);
         var boardVertexIndices = [
@@ -252,6 +317,7 @@
         initGL(canvas);
         initShaders();
         initBuffers();
+		initTexture();
 
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
@@ -285,14 +351,23 @@
 		//Store the current translation matrix
 		mvPushMatrix();
 		
-		mat4.rotate(mvMatrix, degToRad(rWorld), [1, 1, 1]);
-
+		//Rotate the world by the current rotation
+        mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
+        mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
+        mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+		
         gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boardVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, boardVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
+        gl.bindBuffer(gl.ARRAY_BUFFER, boardTextureCoordBuffer);
+        gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, boardTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		//Set texture 0 to the board tile texture
+		gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tileTexture);
+		//Tell the shader to use texture 0, by setting the uniform variable
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+		
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boardVertexIndexBuffer);
         setMatrixUniforms();
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
@@ -305,7 +380,15 @@
 	
 	//Update the position of objects the the program / runs game logic
 	function updateScene(){
+        var timeNow = new Date().getTime();
+        if (lastTime != 0) {
+            var elapsed = timeNow - lastTime;
 
+            xRot += (90 * elapsed) / 1000.0;
+            yRot += (90 * elapsed) / 1000.0;
+            zRot += (90 * elapsed) / 1000.0;
+        }
+        lastTime = timeNow;
 	}
 	
 </script>
