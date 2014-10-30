@@ -21,6 +21,7 @@
 
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="Stats.js"></script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -59,6 +60,8 @@
     var gl;
 	//Stores the HTML canvas element
 	var canvas;
+	//FPS counter
+	var stats = new Stats();
 	
 	//Model-view matrix, stores the current translation and rotation in a 3D space
 	var mvMatrix = mat4.create();
@@ -141,6 +144,16 @@
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
 		}
+	}
+	
+	//Set-up Stats FPS object and add to the HTML body
+	function initStarts(){
+		stats.setMode(0);
+		stats.domElement.style.position = 'absolute';
+		stats.domElement.style.left = '0px';
+		stats.domElement.style.top = '0px';
+		document.body.appendChild( stats.domElement );
+		
 	}
 	
 	//Starts loading the textures, and sets the callback when the textures are loaded
@@ -378,6 +391,7 @@
         initShaders();
         initBuffers();
 		initTexture();
+		initStarts();
 
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
@@ -390,8 +404,10 @@
 	//Runs every time the browser wants to update the windows graphics (main loop)
     function tick() {
         requestAnimFrame(tick);
+		stats.begin();
         drawScene();
         updateScene();
+		stats.end();
     }
 	
 	function drawScene() {
