@@ -22,6 +22,7 @@
 <script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
 <script type="text/javascript" src="webgl-utils.js"></script>
 <script type="text/javascript" src="Stats.js"></script>
+<script type="text/javascript" src="dat.gui.min.js"></script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -84,7 +85,7 @@
 	var tileTexture;
 	
 	//Stores the current X Y and Z rotation of the world
-	var xRot = 0.0;
+	var xRot = 90.0;
     var yRot = 0.0;
     var zRot = 0.0;
 	
@@ -105,6 +106,11 @@
 	//Stores the current mouse state
 	var mouseDown = false;
 	var leftMouse = true;
+	
+	//Stores variables and function run / accessed from the GUI
+	var GUIdata;
+	//The on screen GUI
+	var gui;
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -154,6 +160,25 @@
 		stats.domElement.style.top = '0px';
 		document.body.appendChild( stats.domElement );
 		
+	}
+	
+	//Sets up the GUI and variables for the GUI
+	function initGUI(){
+		GUIdata = {	
+			ResetDisplay : resetMapPos
+				};
+		gui = new dat.GUI();
+		gui.add(GUIdata, 'ResetDisplay');
+	}
+	
+	//Resets the rotation, and translation matrices
+	function resetMapPos(){
+		xRot = 90.0;
+		yRot = 0.0;
+		zRot = 0.0;
+		zPos = -28;
+		xPos = 0;
+		yPos = 0;
 	}
 	
 	//Starts loading the textures, and sets the callback when the textures are loaded
@@ -392,6 +417,7 @@
         initBuffers();
 		initTexture();
 		initStarts();
+		initGUI();
 
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
