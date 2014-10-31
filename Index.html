@@ -101,10 +101,15 @@
 	var mouseDownX = 0;
 	var mouseDownY = 0;
 	
-	//Indicates if the view is being zoomed
+	//Indicates if the view is being zoomed or panned from touch events
 	var zooming = false;
 	//indicates the last zoom amount
 	var lastZoomPos = 0;
+	//Stores the last two point touch event
+	var lastTouchX1;
+	var lastTouchY1;
+	var lastTouchX2;
+	var lastTouchY2;
 	
 	//Stores the current mouse state
 	var mouseDown = false;
@@ -547,6 +552,7 @@
 
 	//touch "drag" event
 	function onTouchMove( event ) {
+		//Single touch point on screen so rotate the world
 		if (mouseDown == true && event.touches.length === 1 ) {
 			event.preventDefault();
 			var dX = mouseDownX - event.touches[ 0 ].pageX;
@@ -557,19 +563,34 @@
 			
 			mouseDownX = event.touches[ 0 ].pageX;
 			mouseDownY = event.touches[ 0 ].pageY;
+			
+		// Two touch points on screen so pan and zoom the world
 		}else if (event.touches.length == 2){
 			var p1 = event.targetTouches[0];
             var p2 = event.targetTouches[1];
 			var dist = Math.sqrt(Math.pow(p2.pageX - p1.pageX, 2) + Math.pow(p2.pageY - p1.pageY, 2)); 
+			var dX = ((p1.pageX + p2.pageX) / 2) - ((lastTouchX1 + lastTouchX2) / 2);
+			var dY = ((p1.pageY + p2.pageY) / 2) - ((lastTouchY1 + lastTouchY2) / 2);
 			
+			//If zooming or panning
 			if(zooming == true){
-				zPos += (dist - lastZoomPos) / 10;
+				zPos -= (zPos / 20) * ((dist - lastZoomPos) / 20);
+				if (zPos > -2){
+					zPos = -2;
+				}
+				targetPosZ = zPos;
+				xPos += dX / 50;
+				yPos -= dY / 50;				
 			}else{
 				zooming = true;
 			}
 			
 			lastZoomPos = dist;
-
+			lastTouchX1 = p1.pageX;
+			lastTouchY1 = p1.pageY;
+			lastTouchX2 = p2.pageX;
+			lastTouchY2 = p2.pageY;
+			
 		}
 	}
 	
