@@ -94,6 +94,9 @@
 	var xPos = 0;
 	var yPos = 0;
 	
+	//Stores the location the world is moving to, so it can be smoothly panned
+	var targetPosZ = -28;
+	
 	//Stores the location of the mouse down event
 	var mouseDownX = 0;
 	var mouseDownY = 0;
@@ -482,7 +485,16 @@
 	
 	//Update the position of objects the the program / runs game logic
 	function updateScene(){
+		var timeNow = new Date().getTime();
+        if (lastTime != 0) {
+            var elapsed = timeNow - lastTime;
 
+			if (targetPosZ != zPos){
+				zPos += ((targetPosZ - zPos ) * elapsed) / 100.0;
+			}
+			
+        }
+        lastTime = timeNow;
 	}
 	
 	//Mouse down event for when the user clicks
@@ -509,8 +521,8 @@
 				yRot -= (dX / 10);
 				xRot -= (dY / 10);
 			}else{
-				xPos -= dX / 10;
-				yPos += dY / 10;
+				xPos -= dX / 50;
+				yPos += dY / 50;
 			}
 			
 			mouseDownX = event.clientX;
@@ -569,7 +581,10 @@
 	
 	//Mouse scroll wheel event
 	function onMouseScroll( event ) {
-		zPos += event.wheelDelta / 20;
+		targetPosZ += (targetPosZ / 20) * (event.wheelDelta / 20);
+		if (targetPosZ > -2){
+			targetPosZ = -2;
+		}
 	}
 	
 	//Stops the context menu showing
