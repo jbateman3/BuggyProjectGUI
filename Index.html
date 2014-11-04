@@ -183,11 +183,33 @@
 	
 	//Sets up the GUI and variables for the GUI
 	function initGUI(){
+		//Two dp to specify the displayed dp
 		GUIdata = {	
+			BuggyX:0.01,
+			BuggyY:0.01,
+			BuggyZ:0.01,
+			BuggyRotation:0.01,
+			FollowBuggy:false,
 			ResetDisplay : resetMapPos
 				};
+		//Create a GUI
 		gui = new dat.GUI();
-		gui.add(GUIdata, 'ResetDisplay');
+		//Add Folders and variables
+		var m1 = gui.addFolder('Camera');
+		m1.add(GUIdata, 'ResetDisplay');
+		m1.add(GUIdata, 'FollowBuggy');
+		
+		var m2 = gui.addFolder('Buggy');
+		m2.add(GUIdata, 'BuggyX', -1, 14);
+		m2.add(GUIdata, 'BuggyY', 0, 5);
+		m2.add(GUIdata, 'BuggyZ', -1, 10);
+		m2.add(GUIdata, 'BuggyRotation', 0, 6.28);
+		
+		//Reset the buggy location
+		GUIdata.BuggyX = 0;
+		GUIdata.BuggyY = 0;
+		GUIdata.BuggyZ = 0;
+		GUIdata.BuggyRotation = 0;
 	}
 	
 	//Resets the rotation, and translation matrices
@@ -302,40 +324,40 @@
 		gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
 		        vertices = [
             // Front face
-            -8.0, -1.0,  6.0,
-             8.0, -1.0,  6.0,
-             8.0,  1.0,  6.0,
-            -8.0,  1.0,  6.0,
+            -7.5, -1.0,  5.5,
+             7.5, -1.0,  5.5,
+             7.5,  1.0,  5.5,
+            -7.5,  1.0,  5.5,
 
             // Back face
-            -8.0, -1.0, -6.0,
-            -8.0,  1.0, -6.0,
-             8.0,  1.0, -6.0,
-             8.0, -1.0, -6.0,
+            -7.5, -1.0, -5.5,
+            -7.5,  1.0, -5.5,
+             7.5,  1.0, -5.5,
+             7.5, -1.0, -5.5,
 
             // Top face
-            -8.0,  1.0, -6.0,
-            -8.0,  1.0,  6.0,
-             8.0,  1.0,  6.0,
-             8.0,  1.0, -6.0,
+            -7.5,  1.0, -5.5,
+            -7.5,  1.0,  5.5,
+             7.5,  1.0,  5.5,
+             7.5,  1.0, -5.5,
 
             // Bottom face
-            -8.0, -1.0, -6.0,
-             8.0, -1.0, -6.0,
-             8.0, -1.0,  6.0,
-            -8.0, -1.0,  6.0,
+            -7.5, -1.0, -5.5,
+             7.5, -1.0, -5.5,
+             7.5, -1.0,  5.5,
+            -7.5, -1.0,  5.5,
 
             // Right face
-             8.0, -1.0, -6.0,
-             8.0,  1.0, -6.0,
-             8.0,  1.0,  6.0,
-             8.0, -1.0,  6.0,
+             7.5, -1.0, -5.5,
+             7.5,  1.0, -5.5,
+             7.5,  1.0,  5.5,
+             7.5, -1.0,  5.5,
 
             // Left face
-            -8.0, -1.0, -6.0,
-            -8.0, -1.0,  6.0,
-            -8.0,  1.0,  6.0,
-            -8.0,  1.0, -6.0
+            -7.5, -1.0, -5.5,
+            -7.5, -1.0,  5.5,
+            -7.5,  1.0,  5.5,
+            -7.5,  1.0, -5.5
         ];
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         boardVertexPositionBuffer.itemSize = 3;
@@ -473,8 +495,8 @@
 		//Reset the mvMatrix to a blank transformation (identity)
         mat4.identity(mvMatrix);
 		
-		//Move the object back in the world
-		mat4.translate(mvMatrix, [xPos, yPos, zPos]);
+		//Move the scene based on the current position
+		mat4.translate(mvMatrix, [xPos, yPos-2, zPos]);
 		
 		//Rotate the world by the current rotation
         mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
@@ -483,6 +505,12 @@
 		
 		//Store the current translation matrix
 		mvPushMatrix();
+		
+		//If the camera is following the buggy, leave the buggy still and move the world
+		if (GUIdata.FollowBuggy){
+			mvPushMatrix();
+			mat4.translate(mvMatrix, [-GUIdata.BuggyX + 6.5, -GUIdata.BuggyY, GUIdata.BuggyZ - 4.5]);
+		}
 		
         gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boardVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -504,12 +532,20 @@
 		//Draw the board to screen
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
-        //Move the drawing pos to the top left of the board
-		mat4.translate(mvMatrix, [-7, 2, -5]);
+		//If the camera is following the buggy, leave the buggy still and move the world
+		if (GUIdata.FollowBuggy){
+			//Move the drawing pos to the top left of the board
+			mvPopMatrix();
+			//mat4.translate(mvMatrix, [-6.5, 2, 4.5 ]);
+			mat4.translate(mvMatrix, [0, 2, 0 ]);
+		}else{
+			//Move the buggy to the X Y location
+			mat4.translate(mvMatrix, [-6.5 + GUIdata.BuggyX, 2 + GUIdata.BuggyY, 4.5 - GUIdata.BuggyZ]);
+		}
 		//Scale the 3D model being drawn to a sensible size
 		mat4.scale(mvMatrix, [0.02, 0.02, 0.02]);
 		//Rotate the model to face forward
-		mat4.rotate(mvMatrix, 2, [0,1,0]);
+		mat4.rotate(mvMatrix, GUIdata.BuggyRotation, [0,1,0]);
 		//Draw the 3D model (changes the current shader program)
 		buggyModel.draw(gl, mvMatrix, pMatrix);
 		
@@ -632,7 +668,7 @@
 	
 	//Mouse scroll wheel event
 	function onMouseScroll( event ) {
-		targetPosZ += (targetPosZ / 20) * (event.wheelDelta / 20);
+		targetPosZ -= (targetPosZ / 20) * (event.wheelDelta / 20);
 		if (targetPosZ > -2){
 			targetPosZ = -2;
 		}
