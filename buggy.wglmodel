@@ -1,0 +1,16 @@
+{
+    "modelVersion": 1,
+    "name": "buzzer",
+    "meshes": [ 
+        {
+            "material": "",
+            "defaultTexture": "buggy.png",
+            "submeshes": [
+                { 
+                    "indexOffset": 0,
+                    "indexCount": 3738
+                }
+            ]
+        }
+     ]
+}

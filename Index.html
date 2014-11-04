@@ -19,9 +19,17 @@
 <title>Buggy Command</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
-<script type="text/javascript" src="glMatrix-0.9.5.min.js"></script>
+<!--Provides  High performance matrix and vector operations for WebGL-->
+<script type="text/javascript" src="gl-matrix.js"></script>
+<!-- Provides cross browser requestAnimFrame support -->
 <script type="text/javascript" src="webgl-utils.js"></script>
+<!-- Used by the model library to load shader programs -->
+<script type="text/javascript" src="gl-util.js"></script>
+<!-- Library to load 3D models -->
+<script type="text/javascript" src="model.js"></script>
+<!-- Library to display a FPS counter -->
 <script type="text/javascript" src="Stats.js"></script>
+<!-- Library to display a small GUI on screen -->
 <script type="text/javascript" src="dat.gui.min.js"></script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
@@ -119,6 +127,9 @@
 	var GUIdata;
 	//The on screen GUI
 	var gui;
+	
+	// Stores a 3D model of the buggy and the methods of rendering it
+	var buggyModel = new Model();
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -390,6 +401,11 @@
         boardVertexIndexBuffer.numItems = 36;
 	}
 	
+	//Loads the 3D models used in the scene
+	function intiModels(){
+		buggyModel.load(gl, "buggy");
+	};
+	
 	//Cuz degrees are cool
 	function degToRad(degrees) {
         return degrees * Math.PI / 180;
@@ -424,8 +440,10 @@
         initShaders();
         initBuffers();
 		initTexture();
+		intiModels();
 		initStarts();
 		initGUI();
+		
 
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
@@ -458,19 +476,22 @@
 		//Move the object back in the world
 		mat4.translate(mvMatrix, [xPos, yPos, zPos]);
 		
-		//Store the current translation matrix
-		mvPushMatrix();
-		
 		//Rotate the world by the current rotation
         mat4.rotate(mvMatrix, degToRad(xRot), [1, 0, 0]);
         mat4.rotate(mvMatrix, degToRad(yRot), [0, 1, 0]);
         mat4.rotate(mvMatrix, degToRad(zRot), [0, 0, 1]);
+		
+		//Store the current translation matrix
+		mvPushMatrix();
 		
         gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, boardVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, boardTextureCoordBuffer);
         gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, boardTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		
+		//Activate the shader program created above to render the board (3D models use a different shader)
+		gl.useProgram(shaderProgram);
 		
 		//Set texture 0 to the board tile texture
 		gl.activeTexture(gl.TEXTURE0);
@@ -480,12 +501,21 @@
 		
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, boardVertexIndexBuffer);
         setMatrixUniforms();
+		//Draw the board to screen
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
-        mvPopMatrix();
+        //Move the drawing pos to the top left of the board
+		mat4.translate(mvMatrix, [-7, 2, -5]);
+		//Scale the 3D model being drawn to a sensible size
+		mat4.scale(mvMatrix, [0.02, 0.02, 0.02]);
+		//Rotate the model to face forward
+		mat4.rotate(mvMatrix, 2, [0,1,0]);
+		//Draw the 3D model (changes the current shader program)
+		buggyModel.draw(gl, mvMatrix, pMatrix);
 		
-		//Activate (use the changed) the mvMatrix
-		setMatrixUniforms();
+		//Take the top matrix off the stack, removes the translation and scale of the 3D model
+		mvPopMatrix();
+
 	}
 	
 	//Update the position of objects the the program / runs game logic
