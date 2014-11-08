@@ -147,6 +147,22 @@
 	//Stores the target box objects
 	var targetBoxs = [];
 	
+	//Crete a class for our blockers
+	var Blocker = function () {
+		this.model = new Model();
+		this.posX = Math.floor(Math.random() * 14) + 1.5; //Random for fun
+		this.posY = 0;
+		this.posZ = Math.floor(Math.random() * 10) + 1;
+		this.rot = 0;
+		this.enabled = true;
+	};
+	
+	//The number of blockers to add
+	var blockerNum = 4;
+	//Stores the blocker objects
+	var blockers = [];
+
+	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
         try {
@@ -232,6 +248,19 @@
 			m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
 			m3x.add(targetBoxs[i], 'enabled').listen();
 			m3x.add(targetBoxs[i], 'value').listen();
+		}
+		
+		//Add each of the blockers to a folder on the GUI
+		var m3 = gui.addFolder('Blockers');
+		for (var i=1; i<=blockerNum; i++) {
+			var m3x = m3.addFolder(i);
+			blockers[i] = new Blocker();
+			blockers[i].model.load(gl, "Models/blocker");
+			m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
+			m3x.add(blockers[i], 'posY', 0, 5).listen();
+			m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
+			m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
+			m3x.add(blockers[i], 'enabled').listen();
 		}
 		
 		//Reset the buggy location
@@ -561,8 +590,6 @@
 		//Draw the board to screen
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
-		
-		
 		//Draw the boxes/targets
 		for (var i=1; i<=targetBoxNum; i++) {
 			if (targetBoxs[i].enabled == true){
@@ -574,7 +601,18 @@
 				mvPopMatrix();
 			}
 		}
-		
+
+		//Draw the blockers
+		for (var i=1; i<=blockerNum; i++) {
+			if (blockers[i].enabled == true){
+				mvPushMatrix();
+				mat4.translate(mvMatrix, [-6.5 + blockers[i].posX, 1.17 + blockers[i].posY, 4.5 - blockers[i].posZ]);
+				mat4.scale(mvMatrix, [0.5, 0.5, 0.5]);
+				mat4.rotate(mvMatrix, blockers[i].rot, [0,1,0]);
+				blockers[i].model.draw(gl, mvMatrix, pMatrix);
+				mvPopMatrix();
+			}
+		}	
 		
 		//If the camera is following the buggy, leave the buggy still and move the world
 		if (GUIdata.FollowBuggy){
