@@ -221,7 +221,8 @@
 			BuggyZ:0.01,
 			BuggyRotation:0.01,
 			FollowBuggy:false,
-			ResetDisplay : resetMapPos
+			ResetDisplay : resetMapPos,
+			LoadMap : loadMapFile
 				};
 		//Create a GUI
 		gui = new dat.GUI();
@@ -263,6 +264,9 @@
 			m3x.add(blockers[i], 'enabled').listen();
 		}
 		
+		//Adds a button to load a file with scene information in
+		gui.add(GUIdata, 'LoadMap');
+		
 		//Reset the buggy location
 		GUIdata.BuggyX = 0;
 		GUIdata.BuggyY = 0;
@@ -278,6 +282,12 @@
 		zPos = -28;
 		xPos = 0;
 		yPos = 0;
+	}
+	
+	//Performs a click on the hidden select file button
+	// The button is hidden so the one on the GUI can be used
+	function loadMapFile(){
+		document.getElementById("fileElem").click();
 	}
 	
 	//Starts loading the textures, and sets the callback when the textures are loaded
@@ -650,6 +660,12 @@
         lastTime = timeNow;
 	}
 	
+	//This is called when a file is selected
+	//Passes the scene information out of the file
+	function handleFiles(){
+		var fileList = this.files;
+	}
+	
 	//Mouse down event for when the user clicks
 	function onMouseDown( event ) {
 		event.preventDefault();
@@ -769,7 +785,7 @@
 
 <body onload="webGLSetup();">
     <canvas id="buggyMap" style="border: none; width: 100%; height: 100%"></canvas>
-
+	<input type="file" id="fileElem" accept=".txt" style="display:none" onchange="handleFiles(this.files)">
 </body>
 
 </html>
