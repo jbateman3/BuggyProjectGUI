@@ -4,7 +4,7 @@
     "meshes": [ 
         {
             "material": "",
-            "defaultTexture": "buggy.png",
+            "defaultTexture": "Textures/buggy.png",
             "submeshes": [
                 { 
                     "indexOffset": 0,

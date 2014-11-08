@@ -20,17 +20,17 @@
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
 <!--Provides  High performance matrix and vector operations for WebGL-->
-<script type="text/javascript" src="gl-matrix.js"></script>
+<script type="text/javascript" src="libs/gl-matrix.js"></script>
 <!-- Provides cross browser requestAnimFrame support -->
-<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="libs/webgl-utils.js"></script>
 <!-- Used by the model library to load shader programs -->
-<script type="text/javascript" src="gl-util.js"></script>
+<script type="text/javascript" src="libs/gl-util.js"></script>
 <!-- Library to load 3D models -->
-<script type="text/javascript" src="model.js"></script>
+<script type="text/javascript" src="libs/model.js"></script>
 <!-- Library to display a FPS counter -->
-<script type="text/javascript" src="Stats.js"></script>
+<script type="text/javascript" src="libs/Stats.js"></script>
 <!-- Library to display a small GUI on screen -->
-<script type="text/javascript" src="dat.gui.min.js"></script>
+<script type="text/javascript" src="libs/dat.gui.min.js"></script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -131,6 +131,21 @@
 	// Stores a 3D model of the buggy and the methods of rendering it
 	var buggyModel = new Model();
 
+	//Create a class for the boxes on the course
+	var Box = function () {
+		this.model = new Model();
+		this.posX = Math.floor(Math.random() * 14) + 1; //Random for fun
+		this.posY = 0;
+		this.posZ = Math.floor(Math.random() * 10) + 1;
+		this.rot = Math.floor(Math.random() * 10) * Math.PI /2;
+		this.enabled = true;
+		this.value = 0;
+	};
+	
+	//The number of target boxes to add
+	var targetBoxNum = 7;
+	//Stores the target box objects
+	var targetBoxs = [];
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
@@ -200,10 +215,24 @@
 		m1.add(GUIdata, 'FollowBuggy');
 		
 		var m2 = gui.addFolder('Buggy');
-		m2.add(GUIdata, 'BuggyX', -1, 14);
-		m2.add(GUIdata, 'BuggyY', 0, 5);
-		m2.add(GUIdata, 'BuggyZ', -1, 10);
-		m2.add(GUIdata, 'BuggyRotation', 0, 6.28);
+		m2.add(GUIdata, 'BuggyX', -1, 14).listen();
+		m2.add(GUIdata, 'BuggyY', 0, 5).listen();
+		m2.add(GUIdata, 'BuggyZ', -1, 10).listen();
+		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen();
+		
+		//Add each of the targets to a folder on the GUI
+		var m3 = gui.addFolder('Targets');
+		for (var i=1; i<=targetBoxNum; i++) {
+			var m3x = m3.addFolder(i);
+			targetBoxs[i] = new Box();
+			targetBoxs[i].model.load(gl, "Models/Target");
+			m3x.add(targetBoxs[i], 'posX', -1, 14).step(1).listen();
+			m3x.add(targetBoxs[i], 'posY', 0, 5).listen();
+			m3x.add(targetBoxs[i], 'posZ', -1, 10).step(1).listen();
+			m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
+			m3x.add(targetBoxs[i], 'enabled').listen();
+			m3x.add(targetBoxs[i], 'value').listen();
+		}
 		
 		//Reset the buggy location
 		GUIdata.BuggyX = 0;
@@ -230,7 +259,7 @@
             handleLoadedTexture(tileTexture)
         }
 
-        tileTexture.image.src = "tile.png";
+        tileTexture.image.src = "Textures/tile.png";
     }
 	
 	//Callback for when the textures are loaded, sends the textures over the the graphics card
@@ -425,7 +454,7 @@
 	
 	//Loads the 3D models used in the scene
 	function intiModels(){
-		buggyModel.load(gl, "buggy");
+		buggyModel.load(gl, "Models/buggy");
 	};
 	
 	//Cuz degrees are cool
@@ -532,6 +561,21 @@
 		//Draw the board to screen
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
+		
+		
+		//Draw the boxes/targets
+		for (var i=1; i<=targetBoxNum; i++) {
+			if (targetBoxs[i].enabled == true){
+				mvPushMatrix();
+				mat4.translate(mvMatrix, [-6.5 + targetBoxs[i].posX, 1.27 + targetBoxs[i].posY, 4.5 - targetBoxs[i].posZ]);
+				mat4.scale(mvMatrix, [0.35, 0.35, 0.35]);
+				mat4.rotate(mvMatrix, targetBoxs[i].rot, [0,1,0]);
+				targetBoxs[i].model.draw(gl, mvMatrix, pMatrix);
+				mvPopMatrix();
+			}
+		}
+		
+		
 		//If the camera is following the buggy, leave the buggy still and move the world
 		if (GUIdata.FollowBuggy){
 			//Move the drawing pos to the top left of the board
