@@ -615,10 +615,10 @@
 			mat4.translate(mvMatrix, [0, 2, 0 ]);
 		}else{
 			//Move the buggy to the X Y location
-			mat4.translate(mvMatrix, [-6.5 + GUIdata.BuggyX, 2 + GUIdata.BuggyY, 4.5 - GUIdata.BuggyZ]);
+			mat4.translate(mvMatrix, [-6.5 + GUIdata.BuggyX, 1.45 + GUIdata.BuggyY, 4.5 - GUIdata.BuggyZ]);
 		}
 		//Scale the 3D model being drawn to a sensible size
-		mat4.scale(mvMatrix, [0.02, 0.02, 0.02]);
+		mat4.scale(mvMatrix, [0.20, 0.20, 0.20]);
 		//Rotate the model to face forward
 		mat4.rotate(mvMatrix, GUIdata.BuggyRotation, [0,1,0]);
 		//Draw the 3D model (changes the current shader program)

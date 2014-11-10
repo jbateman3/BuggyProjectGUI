@@ -1,6 +1,6 @@
 {
     "modelVersion": 1,
-    "name": "buzzer",
+    "name": "default",
     "meshes": [ 
         {
             "material": "",
@@ -8,7 +8,7 @@
             "submeshes": [
                 { 
                     "indexOffset": 0,
-                    "indexCount": 3738
+                    "indexCount": 282
                 }
             ]
         }
