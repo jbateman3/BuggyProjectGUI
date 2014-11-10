@@ -142,8 +142,8 @@
 		this.value = 0;
 	};
 	
-	//The number of target boxes to add
-	var targetBoxNum = 7;
+	//The number of target boxes added to the scene
+	var targetBoxNum = 0;
 	//Stores the target box objects
 	var targetBoxs = [];
 	
@@ -158,7 +158,7 @@
 	};
 	
 	//The number of blockers to add
-	var blockerNum = 4;
+	var blockerNum = 0;
 	//Stores the blocker objects
 	var blockers = [];
 
@@ -236,41 +236,14 @@
 		m2.add(GUIdata, 'BuggyY', 0, 5).listen();
 		m2.add(GUIdata, 'BuggyZ', -1, 10).listen();
 		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen();
-		
-		//Add each of the targets to a folder on the GUI
-		var m3 = gui.addFolder('Targets');
-		for (var i=1; i<=targetBoxNum; i++) {
-			var m3x = m3.addFolder(i);
-			targetBoxs[i] = new Box();
-			targetBoxs[i].model.load(gl, "Models/Target");
-			m3x.add(targetBoxs[i], 'posX', -1, 14).step(1).listen();
-			m3x.add(targetBoxs[i], 'posY', 0, 5).listen();
-			m3x.add(targetBoxs[i], 'posZ', -1, 10).step(1).listen();
-			m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
-			m3x.add(targetBoxs[i], 'enabled').listen();
-			m3x.add(targetBoxs[i], 'value').listen();
-		}
-		
-		//Add each of the blockers to a folder on the GUI
-		var m3 = gui.addFolder('Blockers');
-		for (var i=1; i<=blockerNum; i++) {
-			var m3x = m3.addFolder(i);
-			blockers[i] = new Blocker();
-			blockers[i].model.load(gl, "Models/blocker");
-			m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
-			m3x.add(blockers[i], 'posY', 0, 5).listen();
-			m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
-			m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
-			m3x.add(blockers[i], 'enabled').listen();
-		}
-		
+
 		//Adds a button to load a file with scene information in
 		gui.add(GUIdata, 'LoadMap');
 		
 		//Reset the buggy location
 		GUIdata.BuggyX = 0;
 		GUIdata.BuggyY = 0;
-		GUIdata.BuggyZ = 0;
+		GUIdata.BuggyZ = 8;
 		GUIdata.BuggyRotation = 0;
 	}
 	
@@ -523,6 +496,15 @@
         mvMatrix = mvMatrixStack.pop();
     }
 	
+	//Check file operations are supported by the browser
+	function initFileHandle(){
+		if (window.File && window.FileReader && window.FileList && window.Blob) {
+			//All the File APIs are supported.
+		} else {
+			alert('The File APIs are not fully supported in this browser.');
+		}
+	}
+	
 	//Initialises everything for webGL and components, then runs the scene
 	function webGLSetup() {
         canvas = document.getElementById("buggyMap");
@@ -533,6 +515,7 @@
 		intiModels();
 		initStarts();
 		initGUI();
+		initFileHandle();
 		
 
 		//Gray background
@@ -601,7 +584,7 @@
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
 		//Draw the boxes/targets
-		for (var i=1; i<=targetBoxNum; i++) {
+		for (var i=0; i<targetBoxNum; i++) {
 			if (targetBoxs[i].enabled == true){
 				mvPushMatrix();
 				mat4.translate(mvMatrix, [-6.5 + targetBoxs[i].posX, 1.27 + targetBoxs[i].posY, 4.5 - targetBoxs[i].posZ]);
@@ -613,7 +596,7 @@
 		}
 
 		//Draw the blockers
-		for (var i=1; i<=blockerNum; i++) {
+		for (var i=0; i<blockerNum; i++) {
 			if (blockers[i].enabled == true){
 				mvPushMatrix();
 				mat4.translate(mvMatrix, [-6.5 + blockers[i].posX, 1.17 + blockers[i].posY, 4.5 - blockers[i].posZ]);
@@ -661,9 +644,182 @@
 	}
 	
 	//This is called when a file is selected
-	//Passes the scene information out of the file
-	function handleFiles(){
-		var fileList = this.files;
+	//Passes selected files and calls the file reader
+	function handleFiles(file){
+		//Create a file reader object
+		var reader = new FileReader();
+		//Set the callback for when the file is fully loaded
+		reader.onload = parseFiles;
+		//Start reading the file as a text file (UTF-8 encoding)
+		reader.readAsText(file[0]);
+	}
+	
+	//Passes the loaded file to get the scene information
+	function parseFiles(textFile){
+		var text = textFile.target.result;
+		
+		//Searches the file text for suitable board pattern eg *#*#*#*# Axx *xxx *#
+		var correctFormat = /(\*#\*#\*#\*#(?:(?:[A-D]|\*)[0-9]{3})*\*#)/g;
+		//stores a list of suitable board patterns
+		var boards = text.match(correctFormat);
+		
+		//Check the number of patterns found, the file should only have 1 valid scene in
+		if (boards.length == 1){
+			//Extract the box information
+			var boxesMatch = /([A-D][0-9]{3})/g;
+			var boxList = boards[0].match(boxesMatch);
+			
+			//Create a targets folder in the GUI
+			var m3 = gui.addFolder('Targets');	
+			//Add each box / target to the world / GUI
+			for ( var i = 0; i < boxList.length; i++){
+				//Get the position of the target
+				var coordX = parseInt(boxList[i].substring(1,3));
+				var coordY = parseInt(boxList[i].substring(3,4));
+
+				//Add each of the targets to a folder on the GUI
+				var m3x = m3.addFolder(i);
+				targetBoxs[i] = new Box();
+				//Set the loaded parameters
+				targetBoxs[i].posX = coordX;
+				targetBoxs[i].posZ = coordY;
+				if (boxList[i][0] == 'A'){
+					targetBoxs[i].rot = -Math.PI/2;
+				}else if (boxList[i][0] == 'B'){
+					targetBoxs[i].rot = Math.PI;
+				}else if (boxList[i][0] == 'C'){
+					targetBoxs[i].rot = Math.PI/2;
+				}else if (boxList[i][0] == 'D'){
+					targetBoxs[i].rot = 0;
+				}
+				//Add the parameters to the GUI
+				targetBoxs[i].model.load(gl, "Models/Target");
+				m3x.add(targetBoxs[i], 'posX', -1, 14).step(1).listen();
+				m3x.add(targetBoxs[i], 'posY', 0, 5).listen();
+				m3x.add(targetBoxs[i], 'posZ', -1, 10).step(1).listen();
+				m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
+				m3x.add(targetBoxs[i], 'enabled').listen();
+				m3x.add(targetBoxs[i], 'value').listen();
+			}
+			//The the total number of boxes in the scene so they can be drawn
+			targetBoxNum = boxList.length;
+			
+			//Extract blocker information
+			var blockerMatch = /(\*[0-9]{3})/g;
+			var blockerList = boards[0].match(blockerMatch);
+			
+			//Stores all the coords in an array
+			var coordXs = [];
+			var coordYs = [];
+			for ( var i = 0; i < blockerList.length; i++){
+				coordXs[i] = parseInt(blockerList[i].substring(1,3));
+				coordYs[i] = parseInt(blockerList[i].substring(3,4));
+			}
+			
+			//Indicates which coords have been processed
+			var coordUsed = [];
+			//Init values
+			for (var i = 0; i < blockerList.length; i++)
+				coordUsed[i] = false;
+				
+			//Keeps track of how many blocks have been found
+			var blockersFoundNum = 0;
+			//Blocker positions
+			var blockerFoundX = [];
+			var blockerFoundY = [];
+			var blockerFoundRot = [];
+			
+			//Pair each coord
+			for (var i = 0; i < blockerList.length; i++){
+				//Check if it has already been paired and is valid
+				if (coordUsed[i] == false && coordXs[i] < 14 && coordYs[i] < 10){
+					var foundPartner = false;
+					//Check all other non paired coord for a suitable partner
+					for (var j = 0; j < blockerList.length; j++){
+						//Check if possible partner has already been used and that it is valid
+						if (coordUsed[j] == false && coordXs[j] < 14 && coordYs[j] < 10){
+							//Check if either the X or Y coord line up
+							if (coordXs[i] == coordXs[j]){
+								//Check if the Y coords are spaced correctly
+								if (Math.abs(coordYs[i] - coordYs[j]) == 3){
+									//Found match
+									coordUsed[i] = true;
+									coordUsed[j] = true;
+									foundPartner = true;
+									blockerFoundX[blockersFoundNum] = coordXs[i];
+									blockerFoundY[blockersFoundNum] = (coordYs[i] + coordYs[j]) / 2;
+									blockerFoundRot[blockersFoundNum] = Math.PI/2;
+									blockersFoundNum++;
+								}
+							}else if (coordYs[i] == coordYs[j]){
+								//Check if the X coords are spaced correctly
+								if (Math.abs(coordXs[i] - coordXs[j]) == 3){
+									//Found match
+									coordUsed[i] = true;
+									coordUsed[j] = true;
+									foundPartner = true;
+									blockerFoundX[blockersFoundNum] = (coordXs[i] + coordXs[j]) / 2;
+									blockerFoundY[blockersFoundNum] = coordYs[i];
+									blockerFoundRot[blockersFoundNum] = 0;
+									blockersFoundNum++;
+								}
+							}
+						}
+					}
+					//Check if not suitable partner was found, it must hang off the board
+					if (foundPartner == false){
+						//Check which side of the board it is hanging off
+						if (coordXs[i] <= 2){ // Off left side
+							coordUsed[i] = true;
+							blockerFoundX[blockersFoundNum] = (coordXs[i] + coordXs[x]-3) / 2;
+							blockerFoundY[blockersFoundNum] = coordYs[i];
+							blockerFoundRot[blockersFoundNum] = 0;
+							blockersFoundNum++;
+						}else if (coordXs[i] >= 11){ // Off the right side
+							coordUsed[i] = true;
+							blockerFoundX[blockersFoundNum] = (coordXs[i] + coordXs[x]+3) / 2;
+							blockerFoundY[blockersFoundNum] = coordYs[i];
+							blockerFoundRot[blockersFoundNum] = 0;
+							blockersFoundNum++;
+						}else if (coordYs[i] >= 7){ // Off the top side
+							coordUsed[i] = true;
+							blockerFoundX[blockersFoundNum] = coordXs[i];
+							blockerFoundY[blockersFoundNum] = (coordYs[i] + coordYs[i] + 3) / 2;
+							blockerFoundRot[blockersFoundNum] = Math.PI/2;
+							blockersFoundNum++;
+						}else if (coordYs[i] <= 2){ // Off the bottom side
+							coordUsed[i] = true;
+							blockerFoundX[blockersFoundNum] = coordXs[i];
+							blockerFoundY[blockersFoundNum] = (coordYs[i] + coordYs[i] - 3) / 2;
+							blockerFoundRot[blockersFoundNum] = Math.PI/2;
+							blockersFoundNum++;
+						}
+					}
+				}
+			}	
+			
+			//Now add the found blockers to the GUI and scene
+			var m3 = gui.addFolder('Blockers');
+			for (var i=0; i<blockersFoundNum; i++) {
+				var m3x = m3.addFolder(i);
+				blockers[i] = new Blocker();
+				blockers[i].model.load(gl, "Models/blocker");
+				blockers[i].posX = blockerFoundX[i];
+				blockers[i].posZ = blockerFoundY[i];
+				blockers[i].rot = blockerFoundRot[i];
+				m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
+				m3x.add(blockers[i], 'posY', 0, 5).listen();
+				m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
+				m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
+				m3x.add(blockers[i], 'enabled').listen();
+			}
+			blockerNum = blockersFoundNum
+
+		}else{
+			//Found 0 or too many matches
+			alert('Input file is not the corect format\n Found ' + boards.length + ' matches');
+		}
+		
 	}
 	
 	//Mouse down event for when the user clicks
