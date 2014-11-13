@@ -142,6 +142,12 @@
 		this.value = 0;
 	};
 	
+	//2d vector object
+	var vect2D = function (){
+		this.x = 0;
+		this.y = 0;
+	}
+	
 	//The number of target boxes added to the scene
 	var targetBoxNum = 0;
 	//Stores the target box objects
@@ -161,6 +167,18 @@
 	var blockerNum = 0;
 	//Stores the blocker objects
 	var blockers = [];
+	
+	//each tile on the map has a node for the path algorithm
+	var node = function () {
+		this.weight = 1; //Weight of the current tile
+		this.pathWeight = 0; //Total weight of the path to this tile
+		this.length = 0; //Total number of tiles in the path to this tile
+		this.parentX = 0;
+		this.parentY = 0;
+		this.set = false; //Indicates if this node has had its values set
+	}
+	
+	var boardWeightMap = new Array(14);
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -221,6 +239,17 @@
 			BuggyZ:0.01,
 			BuggyRotation:0.01,
 			FollowBuggy:false,
+			PathBox:0, //Cant move
+			PathBlocker:0, //cont move
+			FreePath:1,
+			BlockerEdge:2,
+			BlockerCorner:3,
+			BlockerEnd:4,
+			BoxCorner:5,
+			BoxSide:6,
+			BoxFront:7,
+			BoxBack:8,
+			ReCalculateRoute: solvePath,
 			ResetDisplay : resetMapPos,
 			LoadMap : loadMapFile
 				};
@@ -237,6 +266,20 @@
 		m2.add(GUIdata, 'BuggyZ', -1, 10).listen();
 		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen();
 
+		var m3 = gui.addFolder('Pathfinding');
+		m3.add(GUIdata, 'PathBox', 0, 50).listen();
+		m3.add(GUIdata, 'PathBlocker', 0, 50).listen();
+		m3.add(GUIdata, 'FreePath', 0, 50).listen();	
+		m3.add(GUIdata, 'BlockerEdge', 0, 50).listen();	
+		m3.add(GUIdata, 'BlockerCorner', 0, 50).listen();	
+		m3.add(GUIdata, 'BlockerEnd', 0, 50).listen();
+		m3.add(GUIdata, 'BoxCorner', 0, 50).listen();
+		m3.add(GUIdata, 'BoxSide', 0, 50).listen();
+		m3.add(GUIdata, 'BoxFront', 0, 50).listen();
+		m3.add(GUIdata, 'BoxBack', 0, 50).listen();
+		
+		m3.add(GUIdata, 'ReCalculateRoute');
+		
 		//Adds a button to load a file with scene information in
 		gui.add(GUIdata, 'LoadMap');
 		
@@ -244,7 +287,7 @@
 		GUIdata.BuggyX = 0;
 		GUIdata.BuggyY = 0;
 		GUIdata.BuggyZ = 8;
-		GUIdata.BuggyRotation = 0;
+		GUIdata.BuggyRotation = Math.PI;
 	}
 	
 	//Resets the rotation, and translation matrices
@@ -505,6 +548,15 @@
 		}
 	}
 	
+	function initWeightMap(){
+		for (var i = 0; i < 14; i++) {
+			boardWeightMap[i] = new Array(10);
+			for (var j = 0; j < 10; j++){
+				boardWeightMap[i][j] = new node();
+			}
+		}
+	}
+	
 	//Initialises everything for webGL and components, then runs the scene
 	function webGLSetup() {
         canvas = document.getElementById("buggyMap");
@@ -516,6 +568,7 @@
 		initStarts();
 		initGUI();
 		initFileHandle();
+		initWeightMap();
 		
 
 		//Gray background
@@ -560,7 +613,7 @@
 		//If the camera is following the buggy, leave the buggy still and move the world
 		if (GUIdata.FollowBuggy){
 			mvPushMatrix();
-			mat4.translate(mvMatrix, [-GUIdata.BuggyX + 6.5, -GUIdata.BuggyY, GUIdata.BuggyZ - 4.5]);
+			mat4.translate(mvMatrix, [-GUIdata.BuggyX + 6.5, 0.6-GUIdata.BuggyY, GUIdata.BuggyZ - 4.5]);
 		}
 		
         gl.bindBuffer(gl.ARRAY_BUFFER, boardVertexPositionBuffer);
@@ -587,8 +640,8 @@
 		for (var i=0; i<targetBoxNum; i++) {
 			if (targetBoxs[i].enabled == true){
 				mvPushMatrix();
-				mat4.translate(mvMatrix, [-6.5 + targetBoxs[i].posX, 1.27 + targetBoxs[i].posY, 4.5 - targetBoxs[i].posZ]);
-				mat4.scale(mvMatrix, [0.35, 0.35, 0.35]);
+				mat4.translate(mvMatrix, [-6.5 + targetBoxs[i].posX, 1.20 + targetBoxs[i].posY, 4.5 - targetBoxs[i].posZ]);
+				mat4.scale(mvMatrix, [0.25, 0.25, 0.25]);
 				mat4.rotate(mvMatrix, targetBoxs[i].rot, [0,1,0]);
 				targetBoxs[i].model.draw(gl, mvMatrix, pMatrix);
 				mvPopMatrix();
@@ -615,7 +668,7 @@
 			mat4.translate(mvMatrix, [0, 2, 0 ]);
 		}else{
 			//Move the buggy to the X Y location
-			mat4.translate(mvMatrix, [-6.5 + GUIdata.BuggyX, 1.45 + GUIdata.BuggyY, 4.5 - GUIdata.BuggyZ]);
+			mat4.translate(mvMatrix, [-6.5 + GUIdata.BuggyX, 1.38 + GUIdata.BuggyY, 4.5 - GUIdata.BuggyZ]);
 		}
 		//Scale the 3D model being drawn to a sensible size
 		mat4.scale(mvMatrix, [0.20, 0.20, 0.20]);
@@ -683,6 +736,7 @@
 				//Set the loaded parameters
 				targetBoxs[i].posX = coordX;
 				targetBoxs[i].posZ = coordY;
+
 				if (boxList[i][0] == 'A'){
 					targetBoxs[i].rot = -Math.PI/2;
 				}else if (boxList[i][0] == 'B'){
@@ -814,12 +868,180 @@
 				m3x.add(blockers[i], 'enabled').listen();
 			}
 			blockerNum = blockersFoundNum
+	
+			solvePath();			
 
 		}else{
 			//Found 0 or too many matches
 			alert('Input file is not the corect format\n Found ' + boards.length + ' matches');
 		}
 		
+	}
+	
+	//Calucates the weights for each tile on the map based on the location of the blockers and the targets
+	function calculateWeightMap(){
+	
+		//Clear the board weightings, set the default blank tile weights
+		for (var i = 0; i < 14; i++) {
+			for (var j = 0; j < 10; j++){
+				boardWeightMap[i][j].weight = GUIdata.FreePath;	
+			}
+		}
+		
+		for (var i=0; i<blockerNum; i++) {
+			//Add weights to the map around the blocker
+			if (blockers[i].rot == 0){ //Horizontal
+				for (var x = blockers[i].posX - 2.5; x <= blockers[i].posX + 2.5; x++){
+					for (var y = blockers[i].posZ - 1; y <= blockers[i].posZ + 1; y++){
+						if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
+							if(Math.abs( x -blockers[i].posX) == 2.5 && Math.abs(y - blockers[i].posZ) == 1){
+								//Corner spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerCorner;
+							}else if (Math.abs( x -blockers[i].posX) == 2.5){
+								//End spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerEnd;
+							}else if (Math.abs(y - blockers[i].posZ) == 1){
+								//Side spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerEdge;
+							}else{
+								//Centre spot
+								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+							}
+						}
+					}
+				}
+			}else{ //Vertical
+				for (var x = blockers[i].posX - 1; x <= blockers[i].posX + 1; x++){
+					for (var y = blockers[i].posZ - 2.5; y <= blockers[i].posZ + 2.5; y++){
+						if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
+							if(Math.abs( x -blockers[i].posX) == 1 && Math.abs(y - blockers[i].posZ) == 2.5){
+								//Corner spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerCorner;
+							}else if (Math.abs( x -blockers[i].posX) == 1){
+								//Side spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerEdge;
+							}else if (Math.abs(y - blockers[i].posZ) == 2.5){
+								//End spot
+								boardWeightMap[x][y].weight = GUIdata.BlockerEnd;
+							}else{
+								//Centre spot
+								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		for (var i=0; i<targetBoxNum; i++) {
+			for (var x = targetBoxs[i].posX - 1; x <= targetBoxs[i].posX + 1; x++){
+				for (var y = targetBoxs[i].posZ - 1; y <= targetBoxs[i].posZ + 1; y++){
+					if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
+						if (targetBoxs[i].rot == 0 || targetBoxs[i].rot == Math.PI){ //East / West
+							if(Math.abs( x -targetBoxs[i].posX) == 1 && Math.abs(y - targetBoxs[i].posZ) == 1){
+								//Corner Spot
+								boardWeightMap[x][y].weight = GUIdata.BoxCorner;
+							} else if (Math.abs(y - targetBoxs[i].posZ) == 1){
+								//Side spot
+								boardWeightMap[x][y].weight = GUIdata.BoxSide;
+							} else if (x - targetBoxs[i].posX == -1){
+								//Font
+								if (targetBoxs[i].rot == 0)
+									boardWeightMap[x][y].weight = GUIdata.BoxFront;
+								else
+									boardWeightMap[x][y].weight = GUIdata.BoxBack;
+							} else if (x - targetBoxs[i].posX == 1){
+								//Back
+								if (targetBoxs[i].rot == 0)
+									boardWeightMap[x][y].weight = GUIdata.BoxBack;
+								else
+									boardWeightMap[x][y].weight = GUIdata.BoxFront;
+							}else{
+								//Middle
+								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+							}
+						}else{//North / South
+							if(Math.abs( x -targetBoxs[i].posX) == 1 && Math.abs(y - targetBoxs[i].posZ) == 1){
+								//Corner Spot
+								boardWeightMap[x][y].weight = GUIdata.BoxCorner;
+							} else if (Math.abs(x - targetBoxs[i].posX) == 1){
+								//Side spot
+								boardWeightMap[x][y].weight = GUIdata.BoxSide;
+							} else if (y - targetBoxs[i].posZ == -1){
+								//Font
+								if (targetBoxs[i].rot == Math.PI/2)
+									boardWeightMap[x][y].weight = GUIdata.BoxFront;
+								else
+									boardWeightMap[x][y].weight = GUIdata.BoxBack;
+							} else if (y - targetBoxs[i].posZ == 1){
+								//Back
+								if (targetBoxs[i].rot == Math.PI/2)
+									boardWeightMap[x][y].weight = GUIdata.BoxBack;
+								else
+									boardWeightMap[x][y].weight = GUIdata.BoxFront;
+							}else{
+								//Middle
+								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	//finds a path from the current position to all the boxes
+	function solvePath(){
+	
+		calculateWeightMap();
+		
+		var startPos = new vect2D();
+		startPos.x = GUIdata.BuggyX;
+		startPos.y = GUIdata.BuggyZ;
+		
+		//A stack to store the active nodes in the fill algorithm
+		var activeNodes = [];
+		//add the start pos to the stack
+		activeNodes.push(startPos);
+		//Set start to done as it is fixed;
+		boardWeightMap[startPos.x][startPos.y].set = true;
+		
+		//loop while there are still nodes in the active stack
+		while (activeNodes.length != 0){
+			var currentNode = activeNodes.pop();
+			//Check the nodes around the current node
+			for (var ii = currentNode.x-1; ii <= currentNode.x+1; ii++) {
+				for (var jj = currentNode.y-1; jj <= currentNode.y+1; jj++){
+					//Dont check diagonals or nodes that are out of range or the current node
+					if ( ii >= 0 && jj >= 0 && ii <= 13 && jj <= 9 && (ii == currentNode.x || jj == currentNode.y) && !(ii == currentNode.x && jj == currentNode.y)){
+						var nextPos = new vect2D();
+						nextPos.x = ii;
+						nextPos.y = jj;
+						//Only update the adjacent tile if the path weight to that tile can be beaten
+						if ((!boardWeightMap[nextPos.x][nextPos.y].set || boardWeightMap[nextPos.x][nextPos.y].pathWeight > boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight) && boardWeightMap[nextPos.x][nextPos.y].weight != 0){
+							activeNodes.push(nextPos);
+							boardWeightMap[nextPos.x][nextPos.y].set = true;
+							boardWeightMap[nextPos.x][nextPos.y].length = boardWeightMap[currentNode.x][currentNode.y].length + 1;
+							boardWeightMap[nextPos.x][nextPos.y].pathWeight = boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight;
+							boardWeightMap[nextPos.x][nextPos.y].parentX = currentNode.x;
+							boardWeightMap[nextPos.x][nextPos.y].parentY = currentNode.y;
+						}
+					}
+				}
+				
+			}		
+		}
+		
+		//Debug print
+		for (var j = 9; j >=0; j--){			
+			var line = "\t";			
+			for (var i = 0; i < 14; i++) {
+				line = line + boardWeightMap[i][j].weight.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
+				if (boardWeightMap[i][j].length < 10)
+					line = line + "\t";
+			}
+			console.log(line);	
+		}		
 	}
 	
 	//Mouse down event for when the user clicks
