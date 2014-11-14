@@ -1033,6 +1033,12 @@
 	
 	//finds a path from the current position to all the boxes
 	function solvePath(){
+	
+		//Clear the line graphics buffer, so any old lines are not drawn
+		while(mapPathCoord.length > 0) {
+			mapPathCoord.pop();
+		}
+	
 		//Reset if the boxes have been used in the current path
 		for (var i=0; i<targetBoxNum; i++) {
 			targetBoxs[i].inPath = false;
