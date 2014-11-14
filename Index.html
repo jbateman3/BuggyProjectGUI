@@ -178,6 +178,7 @@
 		this.parentX = 0;
 		this.parentY = 0;
 		this.set = false; //Indicates if this node has had its values set
+		this.turnCount = 0; //counts the number of turns in the current path
 	}
 	
 	//A map of the board with the tiles weighted so a optimal route can be calculated
@@ -925,6 +926,7 @@
 				boardWeightMap[i][j].length = 0; //Total number of tiles in the path to this tile
 				boardWeightMap[i][j].parentX = 0;
 				boardWeightMap[i][j].parentY = 0;
+				boardWeightMap[i][j].turnCount = 0;
 			}
 		}
 		
@@ -1080,14 +1082,19 @@
 							var nextPos = new vect2D();
 							nextPos.x = ii;
 							nextPos.y = jj;
+							var turn  = 1;
+							//Detects if there is a turn or not
+							if (Math.abs(boardWeightMap[currentNode.x][currentNode.y].parentX - nextPos.x) == 2 || Math.abs(boardWeightMap[currentNode.x][currentNode.y].parentY - nextPos.y) == 2)
+								turn = 0;
 							//Only update the adjacent tile if the path weight to that tile can be beaten
-							if ((!boardWeightMap[nextPos.x][nextPos.y].set || boardWeightMap[nextPos.x][nextPos.y].pathWeight > boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight) && boardWeightMap[nextPos.x][nextPos.y].weight != 0){
+							if ((!boardWeightMap[nextPos.x][nextPos.y].set || boardWeightMap[nextPos.x][nextPos.y].pathWeight > boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight || (boardWeightMap[nextPos.x][nextPos.y].pathWeight == boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight && boardWeightMap[nextPos.x][nextPos.y].turnCount > boardWeightMap[currentNode.x][currentNode.y].turnCount + turn)) && boardWeightMap[nextPos.x][nextPos.y].weight != 0){
 								activeNodes.push(nextPos);
 								boardWeightMap[nextPos.x][nextPos.y].set = true;
 								boardWeightMap[nextPos.x][nextPos.y].length = boardWeightMap[currentNode.x][currentNode.y].length + 1;
 								boardWeightMap[nextPos.x][nextPos.y].pathWeight = boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight;
 								boardWeightMap[nextPos.x][nextPos.y].parentX = currentNode.x;
 								boardWeightMap[nextPos.x][nextPos.y].parentY = currentNode.y;
+								boardWeightMap[nextPos.x][nextPos.y].turnCount = boardWeightMap[currentNode.x][currentNode.y].turnCount + turn;
 							}
 						}
 					}
@@ -1099,7 +1106,7 @@
 			for (var j = 9; j >=0; j--){			
 				var line = "\t";			
 				for (var i = 0; i < 14; i++) {
-					line = line + boardWeightMap[i][j].weight.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
+					line = line + boardWeightMap[i][j].turnCount.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
 					if (boardWeightMap[i][j].length < 10)
 						line = line + "\t";
 				}
