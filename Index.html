@@ -91,6 +91,7 @@
 	
 	//Stores the texture for the board tiles
 	var tileTexture;
+	var redTileTexture;
 	
 	//Stores the current X Y and Z rotation of the world
 	var xRot = 90.0;
@@ -140,6 +141,7 @@
 		this.rot = Math.floor(Math.random() * 10) * Math.PI /2;
 		this.enabled = true;
 		this.value = 0;
+		this.inPath = false;
 	};
 	
 	//2d vector object
@@ -178,7 +180,10 @@
 		this.set = false; //Indicates if this node has had its values set
 	}
 	
+	//A map of the board with the tiles weighted so a optimal route can be calculated
 	var boardWeightMap = new Array(14);
+	//an array for storing all the buffers for all the line segments that make up the buggy path
+	var mapPathCoord = [];
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -242,13 +247,13 @@
 			PathBox:0, //Cant move
 			PathBlocker:0, //cont move
 			FreePath:1,
-			BlockerEdge:2,
-			BlockerCorner:3,
-			BlockerEnd:4,
-			BoxCorner:5,
-			BoxSide:6,
-			BoxFront:7,
-			BoxBack:8,
+			BlockerEdge:0,
+			BlockerCorner:1,
+			BlockerEnd:1,
+			BoxCorner:9,
+			BoxSide:0,
+			BoxFront:1,
+			BoxBack:6,
 			ReCalculateRoute: solvePath,
 			ResetDisplay : resetMapPos,
 			LoadMap : loadMapFile
@@ -308,6 +313,7 @@
 	
 	//Starts loading the textures, and sets the callback when the textures are loaded
     function initTexture() {
+		//Load in the texture for the board
         tileTexture = gl.createTexture();
         tileTexture.image = new Image();
         tileTexture.image.onload = function () {
@@ -315,6 +321,15 @@
         }
 
         tileTexture.image.src = "Textures/tile.png";
+		
+		//Load in the texture for the red path lines
+		redTileTexture = gl.createTexture();
+        redTileTexture.image = new Image();
+        redTileTexture.image.onload = function () {
+            handleLoadedTexture(redTileTexture)
+        }
+
+        redTileTexture.image.src = "Textures/red.png";
     }
 	
 	//Callback for when the textures are loaded, sends the textures over the the graphics card
@@ -635,7 +650,27 @@
         setMatrixUniforms();
 		//Draw the board to screen
         gl.drawElements(gl.TRIANGLES, boardVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-
+		
+		//Draw the buggy route onto the board
+		mvPushMatrix();
+		//Mirror the lines in the z axis as the route finder users a different y scale
+		mat4.scale(mvMatrix, [1, 1, -1]);	
+		//Line the route lines up with the board origin
+		mat4.translate(mvMatrix, [ -6.5, 0, -4.5]);
+		setMatrixUniforms();
+		//Set the red texture
+		gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, redTileTexture);
+		//Tell the shader to use texture 0, by setting the uniform variable
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
+		//Draw the target path lines
+		for(var i = 0; i < mapPathCoord.length; i++){
+			gl.bindBuffer(gl.ARRAY_BUFFER, mapPathCoord[i]);
+			gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, mapPathCoord[i].itemSize, gl.FLOAT, false, 0, 0);
+			gl.drawArrays(gl.TRIANGLES, 0, mapPathCoord[i].numItems);
+		}
+		mvPopMatrix();
+		
 		//Draw the boxes/targets
 		for (var i=0; i<targetBoxNum; i++) {
 			if (targetBoxs[i].enabled == true){
@@ -881,10 +916,15 @@
 	//Calucates the weights for each tile on the map based on the location of the blockers and the targets
 	function calculateWeightMap(){
 	
-		//Clear the board weightings, set the default blank tile weights
+		//Reset the board weight map, so any previous paths are forgotten
 		for (var i = 0; i < 14; i++) {
 			for (var j = 0; j < 10; j++){
 				boardWeightMap[i][j].weight = GUIdata.FreePath;	
+				boardWeightMap[i][j].set = false;
+				boardWeightMap[i][j].pathWeight = 0; //Total weight of the path to this tile
+				boardWeightMap[i][j].length = 0; //Total number of tiles in the path to this tile
+				boardWeightMap[i][j].parentX = 0;
+				boardWeightMap[i][j].parentY = 0;
 			}
 		}
 		
@@ -934,6 +974,7 @@
 		}
 		
 		for (var i=0; i<targetBoxNum; i++) {
+			boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].weight = GUIdata.FreePath;
 			for (var x = targetBoxs[i].posX - 1; x <= targetBoxs[i].posX + 1; x++){
 				for (var y = targetBoxs[i].posZ - 1; y <= targetBoxs[i].posZ + 1; y++){
 					if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
@@ -958,7 +999,7 @@
 									boardWeightMap[x][y].weight = GUIdata.BoxFront;
 							}else{
 								//Middle
-								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+								boardWeightMap[x][y].weight = GUIdata.FreePath;
 							}
 						}else{//North / South
 							if(Math.abs( x -targetBoxs[i].posX) == 1 && Math.abs(y - targetBoxs[i].posZ) == 1){
@@ -981,7 +1022,7 @@
 									boardWeightMap[x][y].weight = GUIdata.BoxFront;
 							}else{
 								//Middle
-								boardWeightMap[x][y].weight = GUIdata.PathBlocker;
+								boardWeightMap[x][y].weight = GUIdata.FreePath;
 							}
 						}
 					}
@@ -992,57 +1033,165 @@
 	
 	//finds a path from the current position to all the boxes
 	function solvePath(){
-	
-		calculateWeightMap();
+		//Reset if the boxes have been used in the current path
+		for (var i=0; i<targetBoxNum; i++) {
+			targetBoxs[i].inPath = false;
+		}
+
+		var allBoxesInPath = false;
+		var completePath = [];
 		
-		var startPos = new vect2D();
-		startPos.x = GUIdata.BuggyX;
-		startPos.y = GUIdata.BuggyZ;
+		var buggyPos = new vect2D();
+		buggyPos.x = GUIdata.BuggyX;
+		buggyPos.y = GUIdata.BuggyZ;
+		completePath.push(buggyPos);
 		
-		//A stack to store the active nodes in the fill algorithm
-		var activeNodes = [];
-		//add the start pos to the stack
-		activeNodes.push(startPos);
-		//Set start to done as it is fixed;
-		boardWeightMap[startPos.x][startPos.y].set = true;
+		while(!allBoxesInPath){
 		
-		//loop while there are still nodes in the active stack
-		while (activeNodes.length != 0){
-			var currentNode = activeNodes.pop();
-			//Check the nodes around the current node
-			for (var ii = currentNode.x-1; ii <= currentNode.x+1; ii++) {
-				for (var jj = currentNode.y-1; jj <= currentNode.y+1; jj++){
-					//Dont check diagonals or nodes that are out of range or the current node
-					if ( ii >= 0 && jj >= 0 && ii <= 13 && jj <= 9 && (ii == currentNode.x || jj == currentNode.y) && !(ii == currentNode.x && jj == currentNode.y)){
-						var nextPos = new vect2D();
-						nextPos.x = ii;
-						nextPos.y = jj;
-						//Only update the adjacent tile if the path weight to that tile can be beaten
-						if ((!boardWeightMap[nextPos.x][nextPos.y].set || boardWeightMap[nextPos.x][nextPos.y].pathWeight > boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight) && boardWeightMap[nextPos.x][nextPos.y].weight != 0){
-							activeNodes.push(nextPos);
-							boardWeightMap[nextPos.x][nextPos.y].set = true;
-							boardWeightMap[nextPos.x][nextPos.y].length = boardWeightMap[currentNode.x][currentNode.y].length + 1;
-							boardWeightMap[nextPos.x][nextPos.y].pathWeight = boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight;
-							boardWeightMap[nextPos.x][nextPos.y].parentX = currentNode.x;
-							boardWeightMap[nextPos.x][nextPos.y].parentY = currentNode.y;
+			//Calculates the weight map for the blockers and targets resetting any previous path
+			calculateWeightMap();
+		
+			var startPos = completePath.pop();
+			//startPos.x = GUIdata.BuggyX;
+			//startPos.y = GUIdata.BuggyZ;
+			
+			//A stack to store the active nodes in the fill algorithm
+			var activeNodes = [];
+			//add the start pos to the stack
+			activeNodes.push(startPos);
+			//Set start to done as it is fixed;
+			boardWeightMap[startPos.x][startPos.y].set = true;
+			
+			//Calculate the shortest path to all tiles on the board
+			//loop while there are still nodes in the active stack
+			while (activeNodes.length != 0){
+				var currentNode = activeNodes.pop();
+				//Check the nodes around the current node
+				for (var ii = currentNode.x-1; ii <= currentNode.x+1; ii++) {
+					for (var jj = currentNode.y-1; jj <= currentNode.y+1; jj++){
+						//Dont check diagonals or nodes that are out of range or the current node
+						if ( ii >= 0 && jj >= 0 && ii <= 13 && jj <= 9 && (ii == currentNode.x || jj == currentNode.y) && !(ii == currentNode.x && jj == currentNode.y)){
+							var nextPos = new vect2D();
+							nextPos.x = ii;
+							nextPos.y = jj;
+							//Only update the adjacent tile if the path weight to that tile can be beaten
+							if ((!boardWeightMap[nextPos.x][nextPos.y].set || boardWeightMap[nextPos.x][nextPos.y].pathWeight > boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight) && boardWeightMap[nextPos.x][nextPos.y].weight != 0){
+								activeNodes.push(nextPos);
+								boardWeightMap[nextPos.x][nextPos.y].set = true;
+								boardWeightMap[nextPos.x][nextPos.y].length = boardWeightMap[currentNode.x][currentNode.y].length + 1;
+								boardWeightMap[nextPos.x][nextPos.y].pathWeight = boardWeightMap[currentNode.x][currentNode.y].pathWeight + boardWeightMap[nextPos.x][nextPos.y].weight;
+								boardWeightMap[nextPos.x][nextPos.y].parentX = currentNode.x;
+								boardWeightMap[nextPos.x][nextPos.y].parentY = currentNode.y;
+							}
 						}
 					}
+					
+				}		
+			}
+			
+			//Debug print
+			for (var j = 9; j >=0; j--){			
+				var line = "\t";			
+				for (var i = 0; i < 14; i++) {
+					line = line + boardWeightMap[i][j].weight.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
+					if (boardWeightMap[i][j].length < 10)
+						line = line + "\t";
 				}
-				
-			}		
+				console.log(line);	
+			}
+			console.log("\n");
+			
+			//Pick the target box with the shortest path
+			var shortestPathLength = 99999;
+			var shortestPathIndex = 0;
+			for (var i=0; i<targetBoxNum; i++) {
+				if (targetBoxs[i].inPath == false){
+					if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length < shortestPathLength){
+						shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length;
+						shortestPathIndex = i;
+					}
+				}
+			}
+			
+			//Add the path to the box to the complete path
+			var tempPath = [];
+			var currentNode = new vect2D();
+			var parentNode = new vect2D();
+			currentNode.x = targetBoxs[shortestPathIndex].posX;
+			currentNode.y = targetBoxs[shortestPathIndex].posZ;
+			parentNode.x = boardWeightMap[currentNode.x][currentNode.y].parentX;
+			parentNode.y = boardWeightMap[currentNode.x][currentNode.y].parentY;
+			while (parentNode.x != 0 || parentNode.y != 0){
+				var cp = new vect2D();
+				cp.x = currentNode.x;
+				cp.y = currentNode.y;
+				tempPath.push(cp);
+				currentNode.x = parentNode.x;
+				currentNode.y = parentNode.y;
+				parentNode.x = boardWeightMap[currentNode.x][currentNode.y].parentX;
+				parentNode.y = boardWeightMap[currentNode.x][currentNode.y].parentY;				
+			}
+			
+			//Move the temp path into the total path but reversed
+			while(tempPath.length != 0){
+				completePath.push(tempPath.pop());
+			}
+			
+			//Mark the target as used
+			targetBoxs[shortestPathIndex].inPath = true;
+			
+			//Check if all the boxes have been included in the path
+			var allUsed = true;
+			for (var i=0; i<targetBoxNum; i++) {
+				if (targetBoxs[i].inPath == false){
+					allUsed = false;
+					break;
+				}
+			}
+			allBoxesInPath = allUsed;
+			
 		}
 		
-		//Debug print
-		for (var j = 9; j >=0; j--){			
-			var line = "\t";			
-			for (var i = 0; i < 14; i++) {
-				line = line + boardWeightMap[i][j].weight.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
-				if (boardWeightMap[i][j].length < 10)
-					line = line + "\t";
-			}
-			console.log(line);	
-		}		
+		//Calculate rectangles that follow the final path to form lines that follow the path
+		var lineWidth = 0.1;
+		for (var i=0; i<completePath.length-1; i++) {
+			//Get the end point for each end of the line
+			var p1 = new vect2D();
+			var p2 = new vect2D();
+			p1.x = completePath[i].x;
+			p1.y = completePath[i].y;
+			p2.x = completePath[i+1].x;
+			p2.y = completePath[i+1].y;
+			
+			//Calculate the offset for the line width from each end of the line
+			var wid = p2.x - p1.x;
+			var hei = p2.y - p1.y;
+			var len = 0;
+			len = Math.sqrt(wid * wid + hei * hei);
+			var xS = (lineWidth * hei / len) / 2;
+			var yS = (lineWidth * wid / len) / 2;
+			var vertices = [];		
+			//Calculate the four corners and add them to the vertices list (x,y,z)
+			//The rectangles are drawn with two triangles for there are 6 points
+			vertices.push(p1.x - xS);vertices.push(1.01);vertices.push(p1.y + yS);
+			vertices.push(p1.x + xS);vertices.push(1.01);vertices.push(p1.y - yS);
+			vertices.push(p2.x + xS);vertices.push(1.01);vertices.push(p2.y - yS);
+			vertices.push(p1.x - xS);vertices.push(1.01);vertices.push(p1.y + yS);
+			vertices.push(p2.x + xS);vertices.push(1.01);vertices.push(p2.y - yS);
+			vertices.push(p2.x - xS);vertices.push(1.01);vertices.push(p2.y + yS);
+			
+			//Create the webGL buffers for the calculated rectangles
+			mapPathCoord[mapPathCoord.length] = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, mapPathCoord[mapPathCoord.length-1]);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+			mapPathCoord[mapPathCoord.length-1].itemSize = 3;
+			mapPathCoord[mapPathCoord.length-1].numItems = vertices.length / 3;
+			
+		}
+
+		console.log("Done");
 	}
+	
 	
 	//Mouse down event for when the user clicks
 	function onMouseDown( event ) {
