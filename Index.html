@@ -129,6 +129,10 @@
 	//The on screen GUI
 	var gui;
 	
+	//The sub folders on the gui
+	var targetsGUI;
+	var blockersGUI;
+	
 	// Stores a 3D model of the buggy and the methods of rendering it
 	var buggyModel = new Model();
 
@@ -296,6 +300,10 @@
 		m3.add(GUIdata, 'BoxSide', 0, 50).listen();
 		m3.add(GUIdata, 'BoxFront', 0, 50).listen();
 		m3.add(GUIdata, 'BoxBack', 0, 50).listen();
+		
+		//Add a place holder
+		targetsGUI = gui.addFolder('Targets');
+		blockersGUI = gui.addFolder('Blockers');
 		
 		m3.add(GUIdata, 'ReCalculateRoute');
 		
@@ -753,7 +761,9 @@
 		//Set the callback for when the file is fully loaded
 		reader.onload = parseFiles;
 		//Start reading the file as a text file (UTF-8 encoding)
-		reader.readAsText(file[0]);
+		if (file.length == 1){ // only one file selected
+			reader.readAsText(file[0]);
+		}
 	}
 	
 	//Passes the loaded file to get the scene information
@@ -771,21 +781,19 @@
 			var boxesMatch = /([A-D][0-9]{3})/g;
 			var boxList = boards[0].match(boxesMatch);
 			
-			//Create a targets folder in the GUI
-			var m3 = gui.addFolder('Targets');	
 			//Add each box / target to the world / GUI
 			for ( var i = 0; i < boxList.length; i++){
 				//Get the position of the target
 				var coordX = parseInt(boxList[i].substring(1,3));
 				var coordY = parseInt(boxList[i].substring(3,4));
 
-				//Add each of the targets to a folder on the GUI
-				var m3x = m3.addFolder(i);
+
 				targetBoxs[i] = new Box();
 				//Set the loaded parameters
 				targetBoxs[i].posX = coordX;
 				targetBoxs[i].posZ = coordY;
-
+				targetBoxs[i].model.load(gl, "Models/Target");
+				
 				if (boxList[i][0] == 'A'){
 					targetBoxs[i].rot = -Math.PI/2;
 				}else if (boxList[i][0] == 'B'){
@@ -795,14 +803,19 @@
 				}else if (boxList[i][0] == 'D'){
 					targetBoxs[i].rot = 0;
 				}
-				//Add the parameters to the GUI
-				targetBoxs[i].model.load(gl, "Models/Target");
-				m3x.add(targetBoxs[i], 'posX', -1, 14).step(1).listen();
-				m3x.add(targetBoxs[i], 'posY', 0, 5).listen();
-				m3x.add(targetBoxs[i], 'posZ', -1, 10).step(1).listen();
-				m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
-				m3x.add(targetBoxs[i], 'enabled').listen();
-				m3x.add(targetBoxs[i], 'value').listen();
+				
+				//Add each of the targets to a folder on the GUI
+				if(typeof targetsGUI.__folders[i] === 'undefined'){
+					var m3x = targetsGUI.addFolder(i);					
+					//Add the parameters to the GUI
+					m3x.add(targetBoxs[i], 'posX', -1, 14).step(1).listen();
+					m3x.add(targetBoxs[i], 'posY', 0, 5).listen();
+					m3x.add(targetBoxs[i], 'posZ', -1, 10).step(1).listen();
+					m3x.add(targetBoxs[i], 'rot', 0, 6.28).step(1.57).listen();
+					m3x.add(targetBoxs[i], 'enabled').listen();
+					m3x.add(targetBoxs[i], 'value').listen();					
+				}		
+
 			}
 			//The the total number of boxes in the scene so they can be drawn
 			targetBoxNum = boxList.length;
@@ -902,19 +915,20 @@
 			}	
 			
 			//Now add the found blockers to the GUI and scene
-			var m3 = gui.addFolder('Blockers');
 			for (var i=0; i<blockersFoundNum; i++) {
-				var m3x = m3.addFolder(i);
 				blockers[i] = new Blocker();
 				blockers[i].model.load(gl, "Models/blocker");
 				blockers[i].posX = blockerFoundX[i];
 				blockers[i].posZ = blockerFoundY[i];
 				blockers[i].rot = blockerFoundRot[i];
-				m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
-				m3x.add(blockers[i], 'posY', 0, 5).listen();
-				m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
-				m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
-				m3x.add(blockers[i], 'enabled').listen();
+				if(typeof blockersGUI.__folders[i] === 'undefined'){
+					var m3x = blockersGUI.addFolder(i);
+					m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
+					m3x.add(blockers[i], 'posY', 0, 5).listen();
+					m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
+					m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
+					m3x.add(blockers[i], 'enabled').listen();
+				}
 			}
 			blockerNum = blockersFoundNum
 	
