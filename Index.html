@@ -186,6 +186,15 @@
 	//an array for storing all the buffers for all the line segments that make up the buggy path
 	var mapPathCoord = [];
 
+	//Creates a websocket connection to the buggy
+	var connection = new WebSocket('ws://zemborg.com:8080/', ['echo-protocol', 'xmpp']);
+	
+	//Create a structure to rend and recive data from the buggy
+	var buggyPacket = function () {
+		this.cmd = ""; //The command issued in the current packet eg. map
+		this.data = ""; //Any data the command requires eg. map points
+		this.dataElements = 0; //Number of elements in the data parameter eg. 100 points
+	}
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
@@ -240,6 +249,7 @@
 	function initGUI(){
 		//Two dp to specify the displayed dp
 		GUIdata = {	
+			BuggyStatus:"Disconected",
 			BuggyX:0.01,
 			BuggyY:0.01,
 			BuggyZ:0.01,
@@ -261,6 +271,9 @@
 				};
 		//Create a GUI
 		gui = new dat.GUI();
+		
+		gui.add(GUIdata, 'BuggyStatus').listen();
+		
 		//Add Folders and variables
 		var m1 = gui.addFolder('Camera');
 		m1.add(GUIdata, 'ResetDisplay');
@@ -1202,9 +1215,65 @@
 			
 		}
 
+		//Create a packet to send to the buggy with the found path in
+		var packet = new buggyPacket();
+		packet.cmd = "map";
+		packet.data = completePath;
+		packet.dataElements = completePath.length;
+		connection.send(JSON.stringify(packet));
+		
 		console.log("Done");
 	}
 	
+	//Event handler for when a connection to the buggy is made
+	connection.onopen = function () {
+		//Change the buggy status
+		GUIdata.BuggyStatus = "Connected";
+		//Send a ping packet when the connection has been established
+		var packet = new buggyPacket();
+		packet.cmd = "ping";
+		packet.data = Date.now().toString();
+		packet.dataElements = 1;
+		connection.send(JSON.stringify(packet)); 
+	};
+	
+	// Runds when the buggy disconnects
+	connection.onclose = function (error) {
+		console.log('Buggy diconneted');
+		GUIdata.BuggyStatus = "Disconected";
+	};
+	
+	// Log errors in the communication to the buggy
+	connection.onerror = function (error) {
+		console.log('WebSocket Error ' + error);
+	};
+	
+	// Handle messages received from the server
+	connection.onmessage = function (e) {
+		console.log('Server: ' + e.data);
+		var packet = JSON.parse(e.data);
+		if (packet.cmd == "log"){
+			console.log('Buggy: ' + packet.data);
+		}else if (packet.cmd == "position"){
+			GUIdata.BuggyX = packet.data.x;
+			GUIdata.BuggyZ = packet.data.y;
+		}else if (packet.cmd == "DTMF"){
+			//Call the parse files function with the DTMF data
+			var textFile = new Object();
+			textFile.target = new Object();
+			textFile.target.result = packet.data;
+			parseFiles(textFile);
+		}else if (packet.cmd == "ping"){
+			//If a ping packet is received response with a ping response packet
+			var packet = new buggyPacket();
+			packet.cmd = "ping response";
+			packet.data = Date.now().toString();
+			packet.dataElements = 1;
+			connection.send(JSON.stringify(packet)); // Send the message 'Ping' to the server
+		}else{
+			console.log('Unknown cmd recived: ' + packet.cmd);
+		}
+	};
 	
 	//Mouse down event for when the user clicks
 	function onMouseDown( event ) {
