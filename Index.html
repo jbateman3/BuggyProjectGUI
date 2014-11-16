@@ -1294,6 +1294,10 @@
 			packet.data = Date.now().toString();
 			packet.dataElements = 1;
 			connection.send(JSON.stringify(packet)); // Send the message 'Ping' to the server
+		}else if (packet.cmd == "value"){
+			//Displays the revived values of the targets to the screen
+			targetBoxDisplay.setValue(packet.data.BoxNum-1, packet.data.BoxValue);
+			targetBoxs[packet.data.BoxNum-1].value = packet.data.BoxValue;
 		}else{
 			console.log('Unknown cmd recived: ' + packet.cmd);
 		}
