@@ -31,6 +31,8 @@
 <script type="text/javascript" src="libs/Stats.js"></script>
 <!-- Library to display a small GUI on screen -->
 <script type="text/javascript" src="libs/dat.gui.min.js"></script>
+<!-- Library to display value boxes on screen -->
+<script type="text/javascript" src="libs/dataBox.js"></script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
@@ -71,6 +73,8 @@
 	var canvas;
 	//FPS counter
 	var stats = new Stats();
+	// Creates boxes on the left of the screen to display values
+	var targetBoxDisplay = new dataBox();
 	
 	//Model-view matrix, stores the current translation and rotation in a 3D space
 	var mvMatrix = mat4.create();
@@ -606,7 +610,6 @@
 		initGUI();
 		initFileHandle();
 		initWeightMap();
-		
 
 		//Gray background
         gl.clearColor(0.6, 0.6, 0.6, 1.0);
@@ -781,12 +784,19 @@
 			var boxesMatch = /([A-D][0-9]{3})/g;
 			var boxList = boards[0].match(boxesMatch);
 			
+			//Remove any boxes already on the screen
+			while(targetBoxDisplay.count > 0)
+				targetBoxDisplay.removeBox(0);
+			
 			//Add each box / target to the world / GUI
 			for ( var i = 0; i < boxList.length; i++){
 				//Get the position of the target
 				var coordX = parseInt(boxList[i].substring(1,3));
 				var coordY = parseInt(boxList[i].substring(3,4));
 
+				//Add a box to the screen to display the target value
+				targetBoxDisplay.addBox("Target " + (i+1));
+				targetBoxDisplay.setValue(i, "N/A");
 
 				targetBoxs[i] = new Box();
 				//Set the loaded parameters
