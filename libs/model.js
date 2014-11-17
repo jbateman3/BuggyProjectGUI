@@ -119,7 +119,7 @@ var test = new glUtil();
         this.complete = false;
     };
 
-    Model.prototype.load = function (gl, url, callback) {
+    Model.prototype.load = function (gl, url, url2, callback) {
         var self = this,
             vertComplete = false,
             modelComplete = false;
@@ -142,7 +142,7 @@ var test = new glUtil();
 
         // Load the json portion of the model
         var jsonXhr = new XMLHttpRequest();
-        jsonXhr.open('GET', url + ".wglmodel", true);
+        jsonXhr.open('GET', url2 + ".wglmodel", true);
         jsonXhr.onload = function() {
             // TODO: Error Catch!
             var model = JSON.parse(this.responseText);

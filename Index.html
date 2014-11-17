@@ -550,7 +550,7 @@
 	
 	//Loads the 3D models used in the scene
 	function intiModels(){
-		buggyModel.load(gl, "Models/buggy");
+		buggyModel.load(gl, "Models/buggy", "Models/buggy");
 	};
 	
 	//Cuz degrees are cool
@@ -802,7 +802,10 @@
 				//Set the loaded parameters
 				targetBoxs[i].posX = coordX;
 				targetBoxs[i].posZ = coordY;
-				targetBoxs[i].model.load(gl, "Models/Target");
+				var modelNum = i+1;
+				if (modelNum > 7 || modelNum < 1)
+					modelNum = 0;
+				targetBoxs[i].model.load(gl, "Models/Target", "Models/Target" + modelNum);
 				
 				if (boxList[i][0] == 'A'){
 					targetBoxs[i].rot = -Math.PI/2;
@@ -927,7 +930,7 @@
 			//Now add the found blockers to the GUI and scene
 			for (var i=0; i<blockersFoundNum; i++) {
 				blockers[i] = new Blocker();
-				blockers[i].model.load(gl, "Models/blocker");
+				blockers[i].model.load(gl, "Models/blocker", "Models/blocker");
 				blockers[i].posX = blockerFoundX[i];
 				blockers[i].posZ = blockerFoundY[i];
 				blockers[i].rot = blockerFoundRot[i];
