@@ -1284,6 +1284,7 @@
 		}else if (packet.cmd == "position"){
 			GUIdata.BuggyX = packet.data.x;
 			GUIdata.BuggyZ = packet.data.y;
+			GUIdata.BuggyRotation = packet.data.rot;
 		}else if (packet.cmd == "DTMF"){
 			//Call the parse files function with the DTMF data
 			var textFile = new Object();
