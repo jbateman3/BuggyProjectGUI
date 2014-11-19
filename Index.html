@@ -113,6 +113,16 @@
 	var targetPosY = 8;
 	var targetRot = Math.PI;
 	
+	//Stores the current movement information
+	var buggyDX = 0;
+	var buggyDY = 0;
+	var buggyDR = 0;
+	var maxDX = 0.05;
+	var maxDY = 0.05;
+	var maxDR = 0.1;
+	var stepD = 0.002;
+	var stepDR = 0.001;
+	
 	//Stores the location of the mouse down event
 	var mouseDownX = 0;
 	var mouseDownY = 0;
@@ -207,6 +217,9 @@
 		this.dataElements = 0; //Number of elements in the data parameter eg. 100 points
 	}
 	
+	//Stores a list of the currently pressed keyboard keys
+	var currentlyPressedKeys = {};
+	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
         try {
@@ -227,6 +240,9 @@
 			canvas.ontouchstart = onTouchStart;
 			document.ontouchmove = onTouchMove;
 			document.ontouchend = onTouchEnd;
+			//Add listeners for keyboard
+			document.onkeydown = handleKeyDown;
+			document.onkeyup = handleKeyUp;
         } catch (e) {
         }
         if (!gl) {
@@ -266,6 +282,7 @@
 			BuggyZ:0.01,
 			BuggyRotation:0.01,
 			FollowBuggy:false,
+			CarMode:false,
 			PathBox:0, //Cant move
 			PathBlocker:0, //cont move
 			FreePath:1,
@@ -295,6 +312,7 @@
 		m2.add(GUIdata, 'BuggyY', 0, 5).listen();
 		m2.add(GUIdata, 'BuggyZ', -1, 10).listen().onChange(function(){targetPosY = GUIdata.BuggyZ;});
 		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen().onChange(function(){targetRot = GUIdata.BuggyRotation;});
+		m2.add(GUIdata, 'CarMode');
 
 		var m3 = gui.addFolder('Pathfinding');
 		m3.add(GUIdata, 'PathBox', 0, 50).listen();
@@ -626,6 +644,7 @@
     function tick() {
         requestAnimFrame(tick);
 		stats.begin();
+		handleKeys();
         drawScene();
         updateScene();
 		stats.end();
@@ -751,6 +770,7 @@
         if (lastTime != 0) {
             var elapsed = timeNow - lastTime;
 
+			//Handle the interpolation between zoom levels and buggy movement
 			if (targetPosZ != zPos){
 				zPos += ((targetPosZ - zPos ) * elapsed) / 100.0;
 			}
@@ -763,7 +783,10 @@
 			if (targetRot != GUIdata.BuggyRotation){
 				GUIdata.BuggyRotation += ((targetRot - GUIdata.BuggyRotation ) * elapsed) / 100.0;
 			}
-			
+			// Change the current buggy position based on the key presses
+			targetPosX += buggyDX;
+			targetPosY += buggyDY;
+			targetRot += buggyDR;			
         }
         lastTime = timeNow;
 	}
@@ -1428,6 +1451,56 @@
 			console.log('Unknown cmd recived: ' + packet.cmd);
 		}
 	};
+	
+	//This is called when a key is pressed, and event to only happen once when a key is pressed go here
+	function handleKeyDown(event){
+		 currentlyPressedKeys[event.keyCode] = true;
+		 
+		 //Handle one time key events
+		if (String.fromCharCode(event.keyCode) == "W") {
+			// Key W was pressed
+		}
+		
+	}
+
+	//This is called when a key is released
+	function handleKeyUp(event) {
+		currentlyPressedKeys[event.keyCode] = false;
+		if (!currentlyPressedKeys[37] && !currentlyPressedKeys[39]) {
+			// Left and right key not pressed stop rotating
+			buggyDR = 0;
+		}
+		if (!currentlyPressedKeys[38] && !currentlyPressedKeys[40]) {
+			// Up and down not pressed stop moving
+			buggyDX = 0;
+			buggyDY = 0;
+		}	
+	}
+	
+	//This is called every tick, everything in here will be run repeated while a key is held down
+	function handleKeys(){
+		//Only accept keyboard arrows if the buggy is in car mode
+		if(GUIdata.CarMode == true){
+			if (currentlyPressedKeys[37]) {
+				// Left cursor key
+				buggyDR += stepDR;
+			}
+			if (currentlyPressedKeys[39]) {
+				// Right cursor key
+				buggyDR -= stepDR;
+			}
+			if (currentlyPressedKeys[38]) {
+				// Up cursor key
+				buggyDX -= stepD * Math.sin(targetRot);
+				buggyDY += stepD * Math.cos(targetRot);
+			}
+			if (currentlyPressedKeys[40]) {
+				// Down cursor key
+				buggyDX += stepD * Math.sin(targetRot);
+				buggyDY -= stepD * Math.cos(targetRot);
+			}
+		}
+	}
 	
 	//Mouse down event for when the user clicks
 	function onMouseDown( event ) {
