@@ -109,6 +109,9 @@
 	
 	//Stores the location the world is moving to, so it can be smoothly panned
 	var targetPosZ = -28;
+	var targetPosX = 0;
+	var targetPosY = 8;
+	var targetRot = Math.PI;
 	
 	//Stores the location of the mouse down event
 	var mouseDownX = 0;
@@ -288,10 +291,10 @@
 		m1.add(GUIdata, 'FollowBuggy');
 		
 		var m2 = gui.addFolder('Buggy');
-		m2.add(GUIdata, 'BuggyX', -1, 14).listen();
+		m2.add(GUIdata, 'BuggyX', -1, 14).listen().onChange(function(){targetPosX = GUIdata.BuggyX;});
 		m2.add(GUIdata, 'BuggyY', 0, 5).listen();
-		m2.add(GUIdata, 'BuggyZ', -1, 10).listen();
-		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen();
+		m2.add(GUIdata, 'BuggyZ', -1, 10).listen().onChange(function(){targetPosY = GUIdata.BuggyZ;});
+		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen().onChange(function(){targetRot = GUIdata.BuggyRotation;});
 
 		var m3 = gui.addFolder('Pathfinding');
 		m3.add(GUIdata, 'PathBox', 0, 50).listen();
@@ -750,6 +753,15 @@
 
 			if (targetPosZ != zPos){
 				zPos += ((targetPosZ - zPos ) * elapsed) / 100.0;
+			}
+			if (targetPosX != GUIdata.BuggyX){
+				GUIdata.BuggyX += ((targetPosX - GUIdata.BuggyX ) * elapsed) / 100.0;
+			}
+			if (targetPosY != GUIdata.BuggyZ){
+				GUIdata.BuggyZ += ((targetPosY - GUIdata.BuggyZ ) * elapsed) / 100.0;
+			}
+			if (targetRot != GUIdata.BuggyRotation){
+				GUIdata.BuggyRotation += ((targetRot - GUIdata.BuggyRotation ) * elapsed) / 100.0;
 			}
 			
         }
@@ -1392,9 +1404,9 @@
 		if (packet.cmd == "log"){
 			console.log('Buggy: ' + packet.data);
 		}else if (packet.cmd == "position"){
-			GUIdata.BuggyX = packet.data.x;
-			GUIdata.BuggyZ = packet.data.y;
-			GUIdata.BuggyRotation = packet.data.rot;
+			targetPosX = packet.data.x;
+			targetPosY = packet.data.y;
+			targetRot = packet.data.rot;
 		}else if (packet.cmd == "DTMF"){
 			//Call the parse files function with the DTMF data
 			var textFile = new Object();
