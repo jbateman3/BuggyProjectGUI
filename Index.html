@@ -1088,11 +1088,13 @@
 
 		var allBoxesInPath = false;
 		var completePath = [];
+		var boxOrder = []; //Stores the order in which the boxes are visited
 		
 		var buggyPos = new vect2D();
 		buggyPos.x = GUIdata.BuggyX;
 		buggyPos.y = GUIdata.BuggyZ;
 		completePath.push(buggyPos);
+		completePath.push(buggyPos);// Twice as one is poped, and we want the complete path to start were the buggy starts
 		
 		while(!allBoxesInPath){
 		
@@ -1165,6 +1167,8 @@
 					}
 				}
 			}
+			//Actual boxes are not zero indexed
+			boxOrder.push(shortestPathIndex+1);
 			
 			//Add the path to the box to the complete path
 			var tempPath = [];
@@ -1183,7 +1187,7 @@
 				currentNode.y = parentNode.y;
 				parentNode.x = boardWeightMap[currentNode.x][currentNode.y].parentX;
 				parentNode.y = boardWeightMap[currentNode.x][currentNode.y].parentY;				
-			}
+			}	
 			
 			//Move the temp path into the total path but reversed
 			while(tempPath.length != 0){
@@ -1204,6 +1208,17 @@
 			allBoxesInPath = allUsed;
 			
 		}
+		
+		//The path doesnt need to go right up to the last box
+		completePath.pop();
+		//The last box needs marking with a double point
+		var lastBox = new vect2D();
+		lastBox.x = boardWeightMap[targetBoxs[shortestPathIndex].posX][targetBoxs[shortestPathIndex].posZ].parentX;
+		lastBox.y = boardWeightMap[targetBoxs[shortestPathIndex].posX][targetBoxs[shortestPathIndex].posZ].parentY;
+		completePath.push(lastBox);
+		
+		//The boxes are pushed so the order needs reversing
+		boxOrder.reverse();
 		
 		//Calculate rectangles that follow the final path to form lines that follow the path
 		var lineWidth = 0.1;
@@ -1241,6 +1256,94 @@
 			mapPathCoord[mapPathCoord.length-1].numItems = vertices.length / 3;
 			
 		}
+		
+		//Calculate a sequence of directions to send to the buggy eg left, forward, forward, right, forward
+		var directions = [];
+		var buggyPos = new vect2D();
+		buggyPos.x = GUIdata.BuggyX;
+		buggyPos.y = GUIdata.BuggyZ;
+		var direction = 's';
+		if (GUIdata.BuggyRotation >= -Math.PI/4 && GUIdata.BuggyRotation <= Math.PI/4){
+			direction = 'n';
+		}else if (GUIdata.BuggyRotation >= Math.PI/4 && GUIdata.BuggyRotation <= 3*Math.PI/4){
+			direction = 'e';
+		}else if (GUIdata.BuggyRotation <= -Math.PI/4 && GUIdata.BuggyRotation >= -3*Math.PI/4){
+			direction = 'w';
+		}else{
+			direction = 's';
+		}
+		var advance = false;
+		var newDirection = direction;
+		for (var i=0; i<completePath.length-1; i++) {
+			if (!advance){
+				advance = false;	
+				if (completePath[i].x - completePath[i+1].x == -1){ // Right
+					newDirection = 'e';				
+					if ( direction == 'n'){
+						directions += "r";
+						directions += "f";
+					}else if (direction == 's'){
+						directions += "l";
+						directions += "f";
+					}else if (direction == 'e'){
+						directions += "f";
+					}else if (direction == 'w'){
+						directions += "b";
+						newDirection = 'w';	
+					}	
+				}else if (completePath[i].x - completePath[i+1].x == 1){ // Left
+					newDirection = 'w';				
+					if ( direction == 'n'){
+						directions += "l";
+						directions += "f";
+					}else if (direction == 's'){
+						directions += "r";
+						directions += "f";
+					}else if (direction == 'e'){
+						directions += "b";
+						newDirection = 'e';	
+					}else if (direction == 'w'){
+						directions += "f";
+					}			
+				}else if (completePath[i].y - completePath[i+1].y == -1){ // Up
+					newDirection = 'n';				
+					if ( direction == 'n'){
+						directions += "f";
+					}else if (direction == 's'){
+						directions += "b";
+						newDirection = 's';	
+					}else if (direction == 'e'){
+						directions += "l";
+						directions += "f";
+					}else if (direction == 'w'){
+						directions += "r";
+						directions += "f";
+					}
+				}else if (completePath[i].y - completePath[i+1].y == 1){ // Down
+					newDirection = 's';				
+					if ( direction == 'n'){
+						directions += "b";
+						newDirection = 'n';	
+					}else if (direction == 's'){
+						directions += "f";
+					}else if (direction == 'e'){
+						directions += "r";
+						directions += "f";
+					}else if (direction == 'w'){
+						directions += "l";
+						directions += "f";
+					}
+				}else if (completePath[i].y - completePath[i+1].y == 0 && completePath[i].x - completePath[i+1].x == 0){ // Approach
+					//Duplicate coordinate therefore box is here, remove the forward command and add the box number
+					directions = directions.substring(0, directions.length - 1);
+					directions += boxOrder.pop();
+					advance = true;
+				}
+				direction = newDirection;
+			}else{
+				advance = false;
+			}
+		}
 
 		//Create a packet to send to the buggy with the found path in
 		var packet = new buggyPacket();
@@ -1248,6 +1351,13 @@
 		packet.data = completePath;
 		packet.dataElements = completePath.length;
 		connection.send(JSON.stringify(packet));
+		
+		//Create a packet to send to the buggy with the instruction list in
+		var packet2 = new buggyPacket();
+		packet2.cmd = "mapInstructions";
+		packet2.data = directions;
+		packet2.dataElements = 1;
+		connection.send(JSON.stringify(packet2));		
 		
 		console.log("Done");
 	}
