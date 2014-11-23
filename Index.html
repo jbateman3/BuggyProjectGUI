@@ -111,17 +111,21 @@
 	var targetPosZ = -28;
 	var targetPosX = 0;
 	var targetPosY = 8;
+	var targetPosH = 0;
 	var targetRot = Math.PI;
 	
 	//Stores the current movement information
 	var buggyDX = 0;
 	var buggyDY = 0;
+	var buggyDZ = 0;
 	var buggyDR = 0;
 	var maxDX = 0.05;
 	var maxDY = 0.05;
+	var maxDZ = 0.05;
 	var maxDR = 0.1;
 	var stepD = 0.002;
 	var stepDR = 0.001;
+	var stepDZ = 0.001;
 	
 	//Stores the location of the mouse down event
 	var mouseDownX = 0;
@@ -206,9 +210,6 @@
 	var boardWeightMap = new Array(14);
 	//an array for storing all the buffers for all the line segments that make up the buggy path
 	var mapPathCoord = [];
-
-	//Creates a websocket connection to the buggy
-	var connection = new WebSocket('ws://zemborg.com:8080/', ['echo-protocol', 'xmpp']);
 	
 	//Create a structure to rend and recive data from the buggy
 	var buggyPacket = function () {
@@ -219,6 +220,10 @@
 	
 	//Stores a list of the currently pressed keyboard keys
 	var currentlyPressedKeys = {};
+	
+	//Creates a websocket connection to the buggy
+	var connection = new WebSocket('ws://zemborg.com:8080/', ['echo-protocol', 'xmpp']);
+
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
     function initGL(canvas) {
@@ -309,7 +314,7 @@
 		
 		var m2 = gui.addFolder('Buggy');
 		m2.add(GUIdata, 'BuggyX', -1, 14).listen().onChange(function(){targetPosX = GUIdata.BuggyX;});
-		m2.add(GUIdata, 'BuggyY', 0, 5).listen();
+		m2.add(GUIdata, 'BuggyY', 0, 5).listen().onChange(function(){targetPosH = GUIdata.BuggyY;});
 		m2.add(GUIdata, 'BuggyZ', -1, 10).listen().onChange(function(){targetPosY = GUIdata.BuggyZ;});
 		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen().onChange(function(){targetRot = GUIdata.BuggyRotation;});
 		m2.add(GUIdata, 'CarMode');
@@ -780,12 +785,17 @@
 			if (targetPosY != GUIdata.BuggyZ){
 				GUIdata.BuggyZ += ((targetPosY - GUIdata.BuggyZ ) * elapsed) / 100.0;
 			}
+			if (targetPosH != GUIdata.BuggyY){
+				GUIdata.BuggyY += ((targetPosH - GUIdata.BuggyY ) * elapsed) / 100.0;
+			}
 			if (targetRot != GUIdata.BuggyRotation){
 				GUIdata.BuggyRotation += ((targetRot - GUIdata.BuggyRotation ) * elapsed) / 100.0;
 			}
 			// Change the current buggy position based on the key presses
 			targetPosX += buggyDX;
 			targetPosY += buggyDY;
+			if(buggyDZ >= 0 || (buggyDZ < 0 && targetPosH + buggyDZ >= 0))//Dont move the buggy through the floor
+				targetPosH += buggyDZ;
 			targetRot += buggyDR;			
         }
         lastTime = timeNow;
@@ -1126,8 +1136,8 @@
 		var boxOrder = []; //Stores the order in which the boxes are visited
 		
 		var buggyPos = new vect2D();
-		buggyPos.x = GUIdata.BuggyX;
-		buggyPos.y = GUIdata.BuggyZ;
+		buggyPos.x = Math.round(GUIdata.BuggyX);
+		buggyPos.y = Math.round(GUIdata.BuggyZ);
 		completePath.push(buggyPos);
 		completePath.push(buggyPos);// Twice as one is poped, and we want the complete path to start were the buggy starts
 		
@@ -1475,6 +1485,10 @@
 			buggyDX = 0;
 			buggyDY = 0;
 		}	
+		if (!currentlyPressedKeys[33] && !currentlyPressedKeys[34]) {
+			// pg up, down key not pressed stop acceding, descending
+			buggyDZ = 0;
+		}
 	}
 	
 	//This is called every tick, everything in here will be run repeated while a key is held down
@@ -1488,6 +1502,14 @@
 			if (currentlyPressedKeys[39]) {
 				// Right cursor key
 				buggyDR -= stepDR;
+			}
+			if (currentlyPressedKeys[34]) {
+				// pg down key
+				buggyDZ -= stepDZ;
+			}
+			if (currentlyPressedKeys[33]) {
+				// pg up key
+				buggyDZ += stepDZ;
 			}
 			if (currentlyPressedKeys[38]) {
 				// Up cursor key
