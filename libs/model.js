@@ -117,44 +117,61 @@ var test = new glUtil();
         this.indexBuffer = null;
         this.meshes = null;
         this.complete = false;
+		this.vertComplete = false,
+        this.modelComplete = false;
     };
 
     Model.prototype.load = function (gl, url, url2, callback) {
-        var self = this,
-            vertComplete = false,
-            modelComplete = false;
+        var self = this;
 
         // Load the binary portion of the model
         var vertXhr = new XMLHttpRequest();
-        vertXhr.open('GET', url + ".wglvert", true);
+        vertXhr.open('GET', "http://seis.bris.ac.uk/~ac12769/BuggyProject/" + url + ".wglvert", true);
         vertXhr.responseType = "arraybuffer";
         vertXhr.onload = function() {
-            var arrays = self._parseBinary(this.response);
-            self._compileBuffers(gl, arrays);
-            vertComplete = true;
+			console.log("Load Sucsess");
+			try{
+		        var arrays = self._parseBinary(this.response);
+				self._compileBuffers(gl, arrays);
+				self.vertComplete = true;
             
-            if (modelComplete) {
-                self.complete = true;
-                if (callback) { callback(self); }
-            }
+				if (self.modelComplete) {
+					self.complete = true;
+					if (callback) { callback(self); }
+				}	
+			}catch (err){
+				self.LoadLocalvertXhr(url, callback);
+			}
+
         };
+		vertXhr.onError = function() {
+			self.LoadLocalvertXhr(url, callback);
+		};
         vertXhr.send(null);
 
         // Load the json portion of the model
         var jsonXhr = new XMLHttpRequest();
-        jsonXhr.open('GET', url2 + ".wglmodel", true);
+        jsonXhr.open('GET', "http://seis.bris.ac.uk/~ac12769/BuggyProject/" + url2 + ".wglmodel", true);
         jsonXhr.onload = function() {
             // TODO: Error Catch!
-            var model = JSON.parse(this.responseText);
-            self._parseModel(model);
-            self._compileMaterials(gl, self.meshes);
-            modelComplete = true;
+			try{
+	            var model = JSON.parse(this.responseText);
+				self._parseModel(model);
+				self._compileMaterials(gl, self.meshes);
+				self.modelComplete = true;
 
-            if (vertComplete) {
-                self.complete = true;
-                if (callback) { callback(self); }
-            }
+				if (self.vertComplete) {
+					self.complete = true;
+					if (callback) { callback(self); }
+				}		
+			}catch (err){
+				self.LoadLocaljsonXhr(url2, callback);
+			}
+
         };
+		jsonXhr.onError = function(){
+			self.LoadLocaljsonXhr(url2, callback);
+		};
         jsonXhr.send(null);
 
         if (!modelShader) {
@@ -165,6 +182,44 @@ var test = new glUtil();
             );
         }
     };
+	
+	Model.prototype.LoadLocalvertXhr = function (url, callback){
+		console.log("LoadError");
+		var self = this;
+		var vertXhr2 = new XMLHttpRequest();
+		vertXhr2.open('GET', url + ".wglvert", true);
+		vertXhr2.responseType = "arraybuffer";
+		vertXhr2.onload = function() {
+			var arrays = self._parseBinary(this.response);
+			self._compileBuffers(gl, arrays);
+			self.vertComplete = true;
+			
+			if (self.modelComplete) {
+				self.complete = true;
+				if (callback) { callback(self); }
+			}
+		};
+		vertXhr2.send(null);
+	}
+	
+	Model.prototype.LoadLocaljsonXhr = function (url, callback){
+		var self = this;
+		var jsonXhr2 = new XMLHttpRequest();
+		jsonXhr2.open('GET', url + ".wglmodel", true);
+		jsonXhr2.onload = function() {
+			// TODO: Error Catch!
+			var model = JSON.parse(this.responseText);
+			self._parseModel(model);
+			self._compileMaterials(gl, self.meshes);
+			self.modelComplete = true;
+	
+			if (self.vertComplete) {
+				self.complete = true;
+				if (callback) { callback(self); }
+			}
+		};
+		jsonXhr2.send(null);
+	}
 
     Model.prototype._parseBinary = function (buffer) {
         var output = {

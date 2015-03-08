@@ -221,8 +221,11 @@
 	//Stores a list of the currently pressed keyboard keys
 	var currentlyPressedKeys = {};
 	
+	//Default url for the websockts server to connect to
+	var buggyConnectionURL =  'ws://run.buggyproject.com';
+	
 	//Creates a websocket connection to the buggy
-	var connection = new WebSocket('ws://zemborg.com:8080/', ['echo-protocol', 'xmpp']);
+	var connection = new WebSocket(buggyConnectionURL, ['echo-protocol', 'xmpp']);
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -281,14 +284,14 @@
 	function initGUI(){
 		//Two dp to specify the displayed dp
 		GUIdata = {	
-			BuggyStatus:"Disconected",
+			BuggyStatus:"Connecting",
 			BuggyX:0.01,
 			BuggyY:0.01,
 			BuggyZ:0.01,
 			BuggyRotation:0.01,
 			FollowBuggy:false,
 			CarMode:false,
-			PathBox:0, //Cant move
+			PathBox:99, //Cant move
 			PathBlocker:0, //cont move
 			FreePath:1,
 			BlockerEdge:0,
@@ -300,12 +303,19 @@
 			BoxBack:6,
 			ReCalculateRoute: solvePath,
 			ResetDisplay : resetMapPos,
-			LoadMap : loadMapFile
+			LoadMap : loadMapFile,
+			ConnectDisconnect : WebSocketsConnectDisconnect,
+			SettingsPage : LoadSettingsPage,
+			BuggyURL : 'ws://run.buggyproject.com'
 				};
 		//Create a GUI
 		gui = new dat.GUI();
 		
-		gui.add(GUIdata, 'BuggyStatus').listen();
+		var m0 = gui.addFolder('WebSockets');
+		m0.add(GUIdata, 'BuggyStatus').listen();
+		m0.add(GUIdata, 'BuggyURL').listen().onChange(function(){buggyConnectionURL = GUIdata.BuggyURL;});
+		m0.add(GUIdata, 'ConnectDisconnect');
+		m0.add(GUIdata, 'SettingsPage');
 		
 		//Add Folders and variables
 		var m1 = gui.addFolder('Camera');
@@ -316,7 +326,7 @@
 		m2.add(GUIdata, 'BuggyX', -1, 14).listen().onChange(function(){targetPosX = GUIdata.BuggyX;});
 		m2.add(GUIdata, 'BuggyY', 0, 5).listen().onChange(function(){targetPosH = GUIdata.BuggyY;});
 		m2.add(GUIdata, 'BuggyZ', -1, 10).listen().onChange(function(){targetPosY = GUIdata.BuggyZ;});
-		m2.add(GUIdata, 'BuggyRotation', 0, 6.28).listen().onChange(function(){targetRot = GUIdata.BuggyRotation;});
+		m2.add(GUIdata, 'BuggyRotation', 0, 12.56).listen().onChange(function(){targetRot = GUIdata.BuggyRotation;});
 		m2.add(GUIdata, 'CarMode');
 
 		var m3 = gui.addFolder('Pathfinding');
@@ -347,6 +357,28 @@
 		GUIdata.BuggyRotation = Math.PI;
 	}
 	
+	//Checks is the websockets connection is open, then opens a new one or closes it accordingly.
+	function WebSocketsConnectDisconnect(){
+		console.log(connection.readyState);
+		if (connection.readyState == 1){ // OPEN
+			console.log("Closing Connection");
+			connection.close();
+		}else if (connection.readyState == 3){ //CLOSE
+			console.log("Opening Connection");
+				connection = new WebSocket(buggyConnectionURL, ['echo-protocol', 'xmpp']);
+				connection.onopen = onWebSocketOpen;
+				connection.onclose = onWebSocketClose;
+				connection.onmessage = onWebSocketMessage;
+				connection.onerror = onWebSocketError;
+				GUIdata.BuggyStatus = "Connecting";				
+		}
+	}
+	
+	//Opens the setting page
+	function LoadSettingsPage(){
+		window.open(' /config/main.html');
+	}
+	
 	//Resets the rotation, and translation matrices
 	function resetMapPos(){
 		xRot = 90.0;
@@ -355,6 +387,7 @@
 		zPos = -28;
 		xPos = 0;
 		yPos = 0;
+		targetPosZ = -28;
 	}
 	
 	//Performs a click on the hidden select file button
@@ -789,6 +822,9 @@
 				GUIdata.BuggyY += ((targetPosH - GUIdata.BuggyY ) * elapsed) / 100.0;
 			}
 			if (targetRot != GUIdata.BuggyRotation){
+				var dtheta = targetRot - GUIdata.BuggyRotation;
+				if (dtheta > Math.PI) GUIdata.BuggyRotation += 2*Math.PI;
+				else if (dtheta < -Math.PI) GUIdata.BuggyRotation -= 2*Math.PI;
 				GUIdata.BuggyRotation += ((targetRot - GUIdata.BuggyRotation ) * elapsed) / 100.0;
 			}
 			// Change the current buggy position based on the key presses
@@ -984,7 +1020,16 @@
 					m3x.add(blockers[i], 'posX', -1, 14).step(1).listen();
 					m3x.add(blockers[i], 'posY', 0, 5).listen();
 					m3x.add(blockers[i], 'posZ', -1, 10).step(1).listen();
-					m3x.add(blockers[i], 'rot', 0, 6.28).step(1.57).listen();
+					//When it is rotated realign it on the grid
+					m3x.add(blockers[i], 'rot', 0, Math.PI).step(Math.PI/2).listen().onChange(function(){
+									for (var num = 0; num < blockerNum; num++){
+										if (blockers[num].rot == Math.PI/2){ // Aligned Vertical 
+											blockers[num].posX = Math.round(blockers[num].posX);
+										}else{
+											blockers[num].posY = Math.round(blockers[num].posY);
+										}
+									}
+									});
 					m3x.add(blockers[i], 'enabled').listen();
 				}
 			}
@@ -1017,7 +1062,7 @@
 		
 		for (var i=0; i<blockerNum; i++) {
 			//Add weights to the map around the blocker
-			if (blockers[i].rot == 0){ //Horizontal
+			if (blockers[i].rot == 0 || blockers[i].rot == Math.PI){ //Horizontal
 				for (var x = blockers[i].posX - 2.5; x <= blockers[i].posX + 2.5; x++){
 					for (var y = blockers[i].posZ - 1; y <= blockers[i].posZ + 1; y++){
 						if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
@@ -1065,7 +1110,7 @@
 			for (var x = targetBoxs[i].posX - 1; x <= targetBoxs[i].posX + 1; x++){
 				for (var y = targetBoxs[i].posZ - 1; y <= targetBoxs[i].posZ + 1; y++){
 					if ( x >= 0 && y >= 0 && x <= 13 && y <= 9 && boardWeightMap[x][y].weight != 0){
-						if (targetBoxs[i].rot == 0 || targetBoxs[i].rot == Math.PI){ //East / West
+						if (targetBoxs[i].rot == 0 || targetBoxs[i].rot == Math.PI || targetBoxs[i].rot == 3.14){ //East / West //3.14 to allow for GUI rounding
 							if(Math.abs( x -targetBoxs[i].posX) == 1 && Math.abs(y - targetBoxs[i].posZ) == 1){
 								//Corner Spot
 								boardWeightMap[x][y].weight = GUIdata.BoxCorner;
@@ -1086,7 +1131,7 @@
 									boardWeightMap[x][y].weight = GUIdata.BoxFront;
 							}else{
 								//Middle
-								boardWeightMap[x][y].weight = GUIdata.FreePath;
+								boardWeightMap[x][y].weight = GUIdata.PathBox;
 							}
 						}else{//North / South
 							if(Math.abs( x -targetBoxs[i].posX) == 1 && Math.abs(y - targetBoxs[i].posZ) == 1){
@@ -1109,7 +1154,7 @@
 									boardWeightMap[x][y].weight = GUIdata.BoxFront;
 							}else{
 								//Middle
-								boardWeightMap[x][y].weight = GUIdata.FreePath;
+								boardWeightMap[x][y].weight = GUIdata.PathBox;
 							}
 						}
 					}
@@ -1157,6 +1202,22 @@
 			//Set start to done as it is fixed;
 			boardWeightMap[startPos.x][startPos.y].set = true;
 			
+			//Weight the tiles around the path we came higher, so we preder a path the way we came
+			//Forces reversing off the targets
+			if (completePath.length >= 2){
+				var centerX = completePath[completePath.length-1].x + (completePath[completePath.length-1].x - completePath[completePath.length-2].x);
+				var centerY = completePath[completePath.length-1].y + (completePath[completePath.length-1].y - completePath[completePath.length-2].y);
+				for(var xxx = centerX - 1; xxx <= centerX + 1; xxx++){
+					for(var yyy = centerY - 1; yyy <= centerY + 1; yyy++){
+						if ( xxx >= 0 && yyy >= 0 && xxx <= 13 && yyy <= 9 && boardWeightMap[xxx][yyy].weight != 0){
+							if ( !(completePath[completePath.length-1].x == xxx && completePath[completePath.length-1].y == yyy)){
+								boardWeightMap[xxx][yyy].weight += 40;
+							}
+						}
+					}
+				}
+			}
+			
 			//Calculate the shortest path to all tiles on the board
 			//loop while there are still nodes in the active stack
 			while (activeNodes.length != 0){
@@ -1193,7 +1254,7 @@
 			for (var j = 9; j >=0; j--){			
 				var line = "\t";			
 				for (var i = 0; i < 14; i++) {
-					line = line + boardWeightMap[i][j].turnCount.toString() + ":" + boardWeightMap[i][j].length.toString() + "\t";
+					line = line + boardWeightMap[i][j].weight.toString() + ":" + boardWeightMap[i][j].pathWeight.toString() + "\t\t";
 					if (boardWeightMap[i][j].length < 10)
 						line = line + "\t";
 				}
@@ -1408,7 +1469,8 @@
 	}
 	
 	//Event handler for when a connection to the buggy is made
-	connection.onopen = function () {
+	connection.onopen = onWebSocketOpen;
+	function onWebSocketOpen() {
 		//Change the buggy status
 		GUIdata.BuggyStatus = "Connected";
 		//Send a ping packet when the connection has been established
@@ -1420,18 +1482,22 @@
 	};
 	
 	// Runds when the buggy disconnects
-	connection.onclose = function (error) {
-		console.log('Buggy diconneted');
+	connection.onclose = onWebSocketClose;
+	function onWebSocketClose(error) {
+		console.log('Disconneted');
 		GUIdata.BuggyStatus = "Disconected";
 	};
 	
 	// Log errors in the communication to the buggy
-	connection.onerror = function (error) {
+	connection.onerror = onWebSocketError; 
+	function onWebSocketError(error) {
+		GUIdata.BuggyStatus = "Disconected";
 		console.log('WebSocket Error ' + error);
 	};
 	
 	// Handle messages received from the server
-	connection.onmessage = function (e) {
+	connection.onmessage = onWebSocketMessage;
+	function onWebSocketMessage(e) {
 		console.log('Server: ' + e.data);
 		var packet = JSON.parse(e.data);
 		if (packet.cmd == "log"){
