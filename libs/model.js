@@ -126,7 +126,18 @@ var test = new glUtil();
 
         // Load the binary portion of the model
         var vertXhr = new XMLHttpRequest();
-        vertXhr.open('GET', "http://seis.bris.ac.uk/~ac12769/BuggyProject/" + url + ".wglvert", true);
+		vertXhr.onreadystatechange = function(){
+			if(vertXhr.readyState == 4){
+				console.log("Done")
+				if(vertXhr.status == 200){
+					console.log("Sucdesss")
+				}else{
+					console.log("Fail")
+					self.LoadLocalvertXhr(url, callback);
+				}
+			}
+		};
+        vertXhr.open('GET', "https://seis.bris.ac.uk/~ac12769/BuggyProject/" + url + ".wglvert", true);
         vertXhr.responseType = "arraybuffer";
         vertXhr.onload = function() {
 			console.log("Load Sucsess");
@@ -147,11 +158,25 @@ var test = new glUtil();
 		vertXhr.onError = function() {
 			self.LoadLocalvertXhr(url, callback);
 		};
-        vertXhr.send(null);
-
+		try{
+			vertXhr.send(null);
+		}catch (err){
+			self.LoadLocalvertXhr(url, callback);
+		}
         // Load the json portion of the model
         var jsonXhr = new XMLHttpRequest();
-        jsonXhr.open('GET', "http://seis.bris.ac.uk/~ac12769/BuggyProject/" + url2 + ".wglmodel", true);
+		jsonXhr.onreadystatechange = function(){
+			if(jsonXhr.readyState == 4){
+					console.log("Done")
+				if(jsonXhr.status == 200){
+					console.log("Sucdesss")
+				}else{
+					console.log("Fail")
+					self.LoadLocaljsonXhr(url2, callback);
+				}
+			}
+		};
+        jsonXhr.open('GET', "https://seis.bris.ac.uk/~ac12769/BuggyProject/" + url2 + ".wglmodel", true);
         jsonXhr.onload = function() {
             // TODO: Error Catch!
 			try{
@@ -172,8 +197,11 @@ var test = new glUtil();
 		jsonXhr.onError = function(){
 			self.LoadLocaljsonXhr(url2, callback);
 		};
-        jsonXhr.send(null);
-
+		try{
+			jsonXhr.send(null);
+		}catch (err){
+			self.LoadLocaljsonXhr(url2, callback);
+		}
         if (!modelShader) {
             modelShader = test.createShaderProgram(gl, modelVS, modelFS, 
                ["position", "texture", "normal"],
