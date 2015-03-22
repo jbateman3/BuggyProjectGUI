@@ -304,6 +304,7 @@
 			ReCalculateRoute: solvePath,
 			ResetDisplay : resetMapPos,
 			LoadMap : loadMapFile,
+			DTMF : SendDTMFCommand,
 			ConnectDisconnect : WebSocketsConnectDisconnect,
 			SettingsPage : LoadSettingsPage,
 			BuggyURL : 'ws://run.buggyproject.com'
@@ -350,11 +351,23 @@
 		//Adds a button to load a file with scene information in
 		gui.add(GUIdata, 'LoadMap');
 		
+		//Adds a button to instruct the buggy to listen for dtmf
+		gui.add(GUIdata, 'DTMF');
+		
 		//Reset the buggy location
 		GUIdata.BuggyX = 0;
 		GUIdata.BuggyY = 0;
 		GUIdata.BuggyZ = 8;
 		GUIdata.BuggyRotation = Math.PI;
+	}
+	
+	//instruct the buggy to listen for dtmf
+	function SendDTMFCommand(){
+		var packet = new buggyPacket();
+		packet.cmd = "readDTMF";
+		packet.data = "";
+		packet.dataElements = 1;
+		connection.send(JSON.stringify(packet));	
 	}
 	
 	//Checks is the websockets connection is open, then opens a new one or closes it accordingly.
@@ -1394,8 +1407,10 @@
 					}else if (direction == 'e'){
 						directions += "f";
 					}else if (direction == 'w'){
-						directions += "b";
-						newDirection = 'w';	
+						directions += "r";
+						directions += "r";
+						directions += "f";
+						newDirection = 'e';	
 					}	
 				}else if (completePath[i].x - completePath[i+1].x == 1){ // Left
 					newDirection = 'w';				
@@ -1406,8 +1421,10 @@
 						directions += "r";
 						directions += "f";
 					}else if (direction == 'e'){
-						directions += "b";
-						newDirection = 'e';	
+						directions += "r";
+						directions += "r";
+						directions += "f";
+						newDirection = 'w';	
 					}else if (direction == 'w'){
 						directions += "f";
 					}			
@@ -1416,8 +1433,10 @@
 					if ( direction == 'n'){
 						directions += "f";
 					}else if (direction == 's'){
-						directions += "b";
-						newDirection = 's';	
+						directions += "r";
+						directions += "r";
+						directions += "f";
+						newDirection = 'n';	
 					}else if (direction == 'e'){
 						directions += "l";
 						directions += "f";
@@ -1428,8 +1447,10 @@
 				}else if (completePath[i].y - completePath[i+1].y == 1){ // Down
 					newDirection = 's';				
 					if ( direction == 'n'){
-						directions += "b";
-						newDirection = 'n';	
+						directions += "r";
+						directions += "r";
+						directions += "f";
+						newDirection = 's';	
 					}else if (direction == 's'){
 						directions += "f";
 					}else if (direction == 'e'){
@@ -1442,7 +1463,34 @@
 				}else if (completePath[i].y - completePath[i+1].y == 0 && completePath[i].x - completePath[i+1].x == 0){ // Approach
 					//Duplicate coordinate therefore box is here, remove the forward command and add the box number
 					directions = directions.substring(0, directions.length - 1);
-					directions += boxOrder.pop();
+					var boxIndex = boxOrder.pop()-1;
+					directions += boxIndex+1;
+					//box index followed by "i" or "n" for inverted or not					
+					if ( direction == 'n'){
+						if (targetBoxs[boxIndex].rot == -Math.PI/2){ //Buggy Facing north, box facing north
+							directions += "n";
+						}else{//Buggy Facing north, box facing south
+							directions += "i";
+						}
+					}else if (direction == 's'){
+						if (targetBoxs[boxIndex].rot == Math.PI/2){ //Buggy Facing south, box facing south
+							directions += "n";
+						}else{//Buggy Facing south, box facing north
+							directions += "i";
+						}
+					}else if (direction == 'e'){
+						if (targetBoxs[boxIndex].rot == Math.PI){ //Buggy Facing east, box facing east
+							directions += "n";
+						}else{//Buggy Facing east, box facing west
+							directions += "i";
+						}
+					}else if (direction == 'w'){
+						if (targetBoxs[boxIndex].rot == 0){ //Buggy Facing west, box facing west
+							directions += "n";
+						}else{//Buggy Facing west, box facing est
+							directions += "i";
+						}
+					}
 					advance = true;
 				}
 				direction = newDirection;
@@ -1451,6 +1499,15 @@
 			}
 		}
 
+		//Get the approach direction to do a victory roll
+		var lastDir = directions[directions.length -3];
+		if (lastDir == 'l'){
+			directions += "r";
+		}else if (lastDir == 'r'){
+			directions += "l";
+		}
+		directions += "v";	
+		
 		//Create a packet to send to the buggy with the found path in
 		var packet = new buggyPacket();
 		packet.cmd = "map";

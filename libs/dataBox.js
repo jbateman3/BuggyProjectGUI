@@ -1,13 +1,13 @@
 function dataBox() {
 
 	this.count = 0; //The number of data boxes being displayed
-	var yHeightStart = 90;
+	var yHeightStart = 70;
 	var yHeight = yHeightStart; //The y height to start adding boxes
 	
 	var containerIDs = []; //An array of all the containers created
 	var valueIDs = []; //Stores the ID of the html components
 	
-	var gap = 90; 
+	var gap = 130; 
 	
 	var setValue = function(index, value){
 		var element = document.getElementById(valueIDs[index]);
@@ -50,13 +50,13 @@ function dataBox() {
 		
 		var value2 = document.createElement( 'div' );
 		value2.id = 'value2';
-		value2.style.cssText = 'position: relative; width: 98%; height: 30px; background-color: rgb(17, 17, 17);';
+		value2.style.cssText = 'position: relative; width: 98%; height: 70px; background-color: rgb(17, 17, 17);';
 		Text.appendChild( value2 );		
 		
 		var Text2 = document.createElement( 'div' );
 		Text2.id = 'Text2' + this.count;
-		Text2.style.cssText = 'color: rgb(255, 255, 255); font-family: Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; line-height: 30px;text-align:center;';
-		Text2.innerHTML = 'N/A';
+		Text2.style.cssText = 'color: rgb(255, 255, 255); font-family: Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; line-height: 24px;text-align:center;';
+		Text2.innerHTML = 'N/AA<br>N/A<br>N/A';
 		value2.appendChild( Text2 );
 		
 		document.body.appendChild( container );
