@@ -225,7 +225,7 @@
 	var buggyConnectionURL =  'ws://run.buggyproject.com';
 	
 	//Creates a websocket connection to the buggy
-	var connection = new WebSocket(buggyConnectionURL, ['echo-protocol', 'xmpp']);
+	var connection = new WebSocket(buggyConnectionURL);
 
 	
 	//Creates the webGL object, uses the size of the canvas on the html page.
@@ -296,7 +296,7 @@
 			FreePath:1,
 			BlockerEdge:0,
 			BlockerCorner:1,
-			BlockerEnd:1,
+			BlockerEnd:30,
 			BoxCorner:9,
 			BoxSide:0,
 			BoxFront:1,
@@ -378,7 +378,7 @@
 			connection.close();
 		}else if (connection.readyState == 3){ //CLOSE
 			console.log("Opening Connection");
-				connection = new WebSocket(buggyConnectionURL, ['echo-protocol', 'xmpp']);
+				connection = new WebSocket(buggyConnectionURL);
 				connection.onopen = onWebSocketOpen;
 				connection.onclose = onWebSocketClose;
 				connection.onmessage = onWebSocketMessage;
@@ -873,7 +873,7 @@
 		var boards = text.match(correctFormat);
 		
 		//Check the number of patterns found, the file should only have 1 valid scene in
-		if (boards.length == 1){
+		if (boards !== null && boards.length == 1){
 			//Extract the box information
 			var boxesMatch = /([A-D][0-9]{3})/g;
 			var boxList = boards[0].match(boxesMatch);
@@ -1052,7 +1052,7 @@
 
 		}else{
 			//Found 0 or too many matches
-			alert('Input file is not the corect format\n Found ' + boards.length + ' matches');
+			alert('Input pattern is not the correct format\nFound ' + ((boards == null) ? '0' :  boards.length) + ' correct matches');
 		}
 		
 	}
@@ -1509,11 +1509,12 @@
 		directions += "v";	
 		
 		//Create a packet to send to the buggy with the found path in
-		var packet = new buggyPacket();
-		packet.cmd = "map";
-		packet.data = completePath;
-		packet.dataElements = completePath.length;
-		connection.send(JSON.stringify(packet));
+		//commented out because Microcontroller doesn't need the full path
+		//var packet = new buggyPacket();
+		//packet.cmd = "map";
+		//packet.data = completePath;
+		//packet.dataElements = completePath.length;
+		//connection.send(JSON.stringify(packet));
 		
 		//Create a packet to send to the buggy with the instruction list in
 		var packet2 = new buggyPacket();
@@ -1580,6 +1581,8 @@
 			//Displays the revived values of the targets to the screen
 			targetBoxDisplay.setValue(packet.data.BoxNum-1, packet.data.BoxValue);
 			targetBoxs[packet.data.BoxNum-1].value = packet.data.BoxValue;
+		}else if (packet.cmd == "ready"){
+			GUIdata.BuggyStatus = "Ready";
 		}else{
 			console.log('Unknown cmd recived: ' + packet.cmd);
 		}
