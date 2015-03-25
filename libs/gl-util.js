@@ -139,6 +139,11 @@ glUtil = function() {
         loadTexture: function(gl, src, callback) {
             var texture = gl.createTexture();
             var image = new Image();
+			image.onerror = function(){
+				if(image.src != src)
+					image.src = src;
+			};
+			image.crossOrigin = '';
             image.addEventListener("load", function() {
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
@@ -148,7 +153,7 @@ glUtil = function() {
             
                 if(callback) { callback(texture); }
             });
-            image.src = src;
+            image.src = "https://seis.bris.ac.uk/~ac12769/BuggyProject/" + src;
             return texture;
         },
     
