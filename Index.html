@@ -295,7 +295,7 @@
 			PathBlocker:0, //cont move
 			FreePath:1,
 			BlockerEdge:0,
-			BlockerCorner:5,
+			BlockerCorner:40,
 			BlockerEnd:30,
 			BoxCorner:50,
 			BoxSide:0,
@@ -1315,14 +1315,14 @@
 				}		
 			}
 			
-			var map = new Array(10);
-			for (var i = 9; i >= 0; i--) {
-				map[9-i] = new Array(14);
-				for (var j = 0; j < 14; j++){
-					map[9-i][j] = boardWeightMap[j][i].weight.toString() + ":" + boardWeightMap[j][i].pathWeight.toString();
-				}
-			}
-			console.table(map);			
+			//var map = new Array(10);
+			//for (var i = 9; i >= 0; i--) {
+			//	map[9-i] = new Array(14);
+			//	for (var j = 0; j < 14; j++){
+			//		map[9-i][j] = boardWeightMap[j][i].weight.toString() + ":" + boardWeightMap[j][i].pathWeight.toString();
+			//	}
+			//}
+			//console.table(map);			
 			
 			//Debug print
 			//for (var j = 9; j >=0; j--){			
@@ -1342,73 +1342,74 @@
 			var shortestPathIndex = -1;
 			for (var i=0; i<targetBoxNum; i++) {
 				if (targetBoxs[i].inPath == false){
-					//if (targetBoxs[i].rot == 0 || targetBoxs[i].rot == Math.PI || targetBoxs[i].rot == 3.14){//East / West
-					//		if(targetBoxs[i].posX >= 2){
-					//			if (boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].weight != 0){
-					//				if (boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].length < shortestPathLength){
-					//					shortestPathLength = boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].length;
-					//					boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].parentX = targetBoxs[i].posX-2;
-					//					boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX-1;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;									
-					//					shortestPathIndex = i;
-					//				}
-					//			}
-					//		}
-					//		if(targetBoxs[i].posX <= 11){
-					//			if (boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].weight != 0){
-					//				if (boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].length < shortestPathLength){
-					//					shortestPathLength = boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].length;
-					//					boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].parentX = targetBoxs[i].posX+2;
-					//					boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX+1;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;									
-					//					shortestPathIndex = i;
-					//				}
-					//			}							
-					//		}
-					//}else{ //North / South
-					//		if(targetBoxs[i].posZ >= 2){
-					//			if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].weight != 0){
-					//				if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].length < shortestPathLength){
-					//					shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].length;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].parentX = targetBoxs[i].posX;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].parentY = targetBoxs[i].posZ-2;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ-1;									
-					//					shortestPathIndex = i;
-					//				}
-					//			}
-					//		}
-					//		if(targetBoxs[i].posZ <= 7){
-					//			if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].weight != 0){
-					//				if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].length < shortestPathLength){
-					//					shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].length;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].parentX = targetBoxs[i].posX;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].parentY = targetBoxs[i].posZ+2;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX;
-					//					boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ+1;									
-					//					shortestPathIndex = i;
-					//				}
-					//			}			
-					//		}
-					//}
-				
-					if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length < shortestPathLength && (targetBoxs[i].posX == boardWeightMap[boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX][boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY].parentX || targetBoxs[i].posZ == boardWeightMap[boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX][boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY].parentY)){
-						shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length;
-						shortestPathIndex = i;
+					if (targetBoxs[i].rot == 0 || targetBoxs[i].rot == Math.PI || targetBoxs[i].rot == 3.14){//East / West
+							if(targetBoxs[i].posX >= 2){
+								if (boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].weight != 999 && boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].weight != 999){
+									if (boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].pathWeight + boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].weight < shortestPathLength){
+										shortestPathLength = boardWeightMap[targetBoxs[i].posX-2][targetBoxs[i].posZ].pathWeight + boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].weight;
+										boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].parentX = targetBoxs[i].posX-2;
+										boardWeightMap[targetBoxs[i].posX-1][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX-1;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;									
+										shortestPathIndex = i;
+									}
+								}
+							}
+							if(targetBoxs[i].posX <= 11){
+								if (boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].weight != 999 && boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].weight != 0 && boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].weight != 999){
+									if (boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].pathWeight + boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].weight < shortestPathLength){
+										shortestPathLength = boardWeightMap[targetBoxs[i].posX+2][targetBoxs[i].posZ].pathWeight + boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].weight;
+										boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].parentX = targetBoxs[i].posX+2;
+										boardWeightMap[targetBoxs[i].posX+1][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX+1;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ;									
+										shortestPathIndex = i;
+									}
+								}							
+							}
+					}else{ //North / South
+							if(targetBoxs[i].posZ >= 2){
+								if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].weight != 999 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].weight != 999){
+									if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].pathWeight + boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].weight< shortestPathLength){
+										shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-2].pathWeight + boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].weight;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].parentX = targetBoxs[i].posX;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ-1].parentY = targetBoxs[i].posZ-2;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ-1;									
+										shortestPathIndex = i;
+									}
+								}
+							}
+							if(targetBoxs[i].posZ <= 7){
+								if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].weight != 999 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].weight != 0 && boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].weight != 999){
+									if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].pathWeight + boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].weight < shortestPathLength){
+										shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+2].pathWeight + boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].weight;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].parentX = targetBoxs[i].posX;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ+1].parentY = targetBoxs[i].posZ+2;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX = targetBoxs[i].posX;
+										boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY = targetBoxs[i].posZ+1;									
+										shortestPathIndex = i;
+									}
+								}			
+							}
 					}
+				
+					//if (boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length < shortestPathLength && (targetBoxs[i].posX == boardWeightMap[boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX][boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY].parentX || targetBoxs[i].posZ == boardWeightMap[boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentX][boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].parentY].parentY)){
+					//	shortestPathLength = boardWeightMap[targetBoxs[i].posX][targetBoxs[i].posZ].length;
+					//	shortestPathIndex = i;
+					//}
 				}
 			}
-			console.log(shortestPathIndex);
-						var map = new Array(10);
-			for (var i = 9; i >= 0; i--) {
-				map[9-i] = new Array(14);
-				for (var j = 0; j < 14; j++){
-					map[9-i][j] = boardWeightMap[j][i].weight.toString() + ":" + boardWeightMap[j][i].pathWeight.toString() + ":" + boardWeightMap[j][i].parentX.toString() + ":" + boardWeightMap[j][i].parentY.toString();
-				}
-			}
-			console.table(map);	
+			//if(shortestPathIndex == 5)
+			//console.log(shortestPathIndex);
+			//			var map = new Array(10);
+			//for (var i = 9; i >= 0; i--) {
+			//	map[9-i] = new Array(14);
+			//	for (var j = 0; j < 14; j++){
+			//		map[9-i][j] = boardWeightMap[j][i].weight.toString() + ":" + boardWeightMap[j][i].pathWeight.toString() + ":" + boardWeightMap[j][i].parentX.toString() + ":" + boardWeightMap[j][i].parentY.toString();
+			//	}
+			//}
+			//console.table(map);	
 			
 			if (shortestPathIndex == -1){
 				alert('Cannot find soutable path to all the boxes, skipping difficault ones');
@@ -1632,8 +1633,50 @@
 				advance = false;
 			}
 		}
-
+		
+		
 		//Get the approach direction to do a victory roll
+		//var dx = completePath[completePath.length-3].x - completePath[completePath.length-4].x;
+		//var dy = completePath[completePath.length-3].y - completePath[completePath.length-4].y;
+		//
+		//if (dy == 1){ //Moved north last
+		//	if ( direction == 'n'){
+		//	}else if (direction == 's'){
+		//		directions += "rr";
+		//	}else if (direction == 'e'){
+		//		directions += "l";
+		//	}else if (direction == 'w'){
+		//		directions += "r";
+		//	}
+		//}else if (dy == -1){//Moved south last
+		//	if ( direction == 'n'){
+		//		directions += "rr";
+		//	}else if (direction == 's'){
+		//	}else if (direction == 'e'){
+		//		directions += "r";
+		//	}else if (direction == 'w'){
+		//		directions += "l";
+		//	}			
+		//}else if (dx == 1){//Moved East last
+		//	if ( direction == 'n'){
+		//		directions += "r";
+		//	}else if (direction == 's'){
+		//		directions += "l";
+		//	}else if (direction == 'e'){
+		//	}else if (direction == 'w'){
+		//		directions += "rr";
+		//	}			
+		//}else if (dx == -1){ //Moved West last
+		//	if ( direction == 'n'){
+		//		directions += "l";
+		//	}else if (direction == 's'){
+		//		directions += "r";
+		//	}else if (direction == 'e'){
+		//		directions += "rr";
+		//	}else if (direction == 'w'){
+		//	}			
+		//}
+	
 		var lastDir = directions[directions.length -3];
 		if (lastDir == 'l'){
 			directions += "r";
