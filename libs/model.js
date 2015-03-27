@@ -128,11 +128,11 @@ var test = new glUtil();
         var vertXhr = new XMLHttpRequest();
 		vertXhr.onreadystatechange = function(){
 			if(vertXhr.readyState == 4){
-				console.log("Done")
+				//console.log("Done")
 				if(vertXhr.status == 200){
-					console.log("Sucdesss")
+					//console.log("Sucdesss")
 				}else{
-					console.log("Fail")
+					//console.log("Fail")
 					self.LoadLocalvertXhr(url, callback);
 				}
 			}
@@ -140,7 +140,7 @@ var test = new glUtil();
         vertXhr.open('GET', "https://seis.bris.ac.uk/~ac12769/BuggyProject/" + url + ".wglvert", true);
         vertXhr.responseType = "arraybuffer";
         vertXhr.onload = function() {
-			console.log("Load Sucsess");
+			//console.log("Load Sucsess");
 			try{
 		        var arrays = self._parseBinary(this.response);
 				self._compileBuffers(gl, arrays);
@@ -167,9 +167,9 @@ var test = new glUtil();
         var jsonXhr = new XMLHttpRequest();
 		jsonXhr.onreadystatechange = function(){
 			if(jsonXhr.readyState == 4){
-					console.log("Done")
+					//console.log("Done")
 				if(jsonXhr.status == 200){
-					console.log("Sucdesss")
+					//console.log("Sucdesss")
 				}else{
 					console.log("Fail")
 					self.LoadLocaljsonXhr(url2, callback);

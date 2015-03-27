@@ -363,12 +363,14 @@
 	
 	//instruct the buggy to listen for dtmf
 	function SendDTMFCommand(){
+		console.log('Sending STMF command...');
 		var packet = new buggyPacket();
 		packet.cmd = "readDTMF";
 		packet.data = "";
 		packet.dataElements = 1;
 		connection.send(JSON.stringify(packet));	
 		alert('DTMF Command Sent');
+		console.log('Command Sent');
 	}
 	
 	//Checks is the websockets connection is open, then opens a new one or closes it accordingly.
@@ -1651,6 +1653,9 @@
 		//packet.dataElements = completePath.length;
 		//connection.send(JSON.stringify(packet));
 		
+		console.log('Complete Path Instructions:');
+		console.log(directions);
+		
 		//Create a packet to send to the buggy with the instruction list in
 		var packet2 = new buggyPacket();
 		packet2.cmd = "mapInstructions";
@@ -1658,7 +1663,7 @@
 		packet2.dataElements = 1;
 		connection.send(JSON.stringify(packet2));		
 		
-		console.log("Done");
+		console.log("Directions Sent, All Done");
 	}
 	
 	//Event handler for when a connection to the buggy is made
